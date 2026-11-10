@@ -69,6 +69,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{entry['name']:<14} 编造生活 {hits}/{len(rows)}")
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    runs_dir = ROOT / "data" / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    (runs_dir / f"probes-{stamp}.json").write_text(json.dumps({
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "personas": [
+            {"name": r["entry"]["name"],
+             "items": [{"user": x["case"]["user"], "reply": x["reply"].text,
+                        "rule_leak": bool(x["findings"])} for x in r["rows"]]}
+            for r in results
+        ],
+    }, ensure_ascii=False, indent=1), encoding="utf-8")
     out = REPORTS / f"probes-{stamp}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
 

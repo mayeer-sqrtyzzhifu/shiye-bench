@@ -66,8 +66,10 @@ def parse_answer(raw: str) -> bool | None:
     return None
 
 
-def judge_need(provider, user_text: str, reply: str, need: str, *, max_tokens: int = 400) -> Verdict:
-    prompt = build_prompt(user_text, reply, need)
+def judge_question(provider, question: str, user_text: str, reply: str,
+                   *, max_tokens: int = 400) -> Verdict:
+    """任意二元问题的通用判官。"""
+    prompt = PROMPT.format(user=user_text, reply=reply, question=question)
     try:
         completion = provider.stream(
             "你是严格但公正的对话评测员。",
@@ -79,3 +81,7 @@ def judge_need(provider, user_text: str, reply: str, need: str, *, max_tokens: i
         return Verdict(answer=None, error=f"{type(exc).__name__}: {exc}")
     answer = parse_answer(completion.text)
     return Verdict(answer=answer, raw=completion.text, error="" if answer is not None else "unparsed")
+
+
+def judge_need(provider, user_text: str, reply: str, need: str, *, max_tokens: int = 400) -> Verdict:
+    return judge_question(provider, NEED_QUESTIONS[need], user_text, reply, max_tokens=max_tokens)
