@@ -43,7 +43,7 @@ DIMENSIONS = {
 def run_single(provider: str) -> int:
     import run as mod
 
-    return mod.main(["--provider", provider, "--limit", "12"])
+    return mod.main(["--provider", provider, "--limit", "60"])
 
 
 def run_arcs(provider: str) -> int:
