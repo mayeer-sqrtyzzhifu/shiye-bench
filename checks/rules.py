@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 
 # ───────────────────────────────────────── 数据结构
@@ -103,7 +104,7 @@ def starts_with_interjection(text: str) -> bool:
 # 只数问号会把一半提问判成"其他"。这里按句式特征补。
 _QUESTION_SHAPE = re.compile(
     r"还是|是不是|要不要|有没有|能不能|会不会|对不对|"
-    r"哪一种?|哪一步|哪块|什么|怎么|多少|几点|哪里|为啥|为什么"
+    r"哪(?:一)?种|哪(?:一)?件|哪(一)?个|哪一步|哪块|什么|怎么|多少|几点|哪里|为啥|为什么|哪种时刻"
 )
 
 
@@ -253,6 +254,41 @@ def check_repetition(previous: str, current: str, *, threshold: float = 0.4) -> 
 # ───────────────────────────────────────── 汇总
 
 
+def formulaic_fragments(
+    texts: list[str], *, n: int = 6, min_count: int = 3, limit: int = 3
+) -> list[tuple[str, int]]:
+    """跨回复重复出现的片段 —— 用来抓"换了新公式"。
+
+    单轮看不到这个问题：每一句单独看都没毛病，但同一句话换着场景说了三遍，
+    就是新的模板。用户当初抱怨"太公式"，修掉旧公式之后会长出新的。
+
+    只统计不含标点/空白的 n 字窗口，避免把"嗯。"这种常见短句算进来。
+    """
+    # 记录片段出现在哪些回复里：同一个句子里滑动窗口切出来的几个片段
+    # 会共享完全相同的"出现集合"，它们是**同一个现象**，不能各算一次。
+    where: dict[str, set[int]] = {}
+    for index, text in enumerate(texts):
+        for i in range(len(text) - n + 1):
+            fragment = text[i : i + n]
+            if any(ch in fragment for ch in "，。！？；：、\n \t「」…—"):
+                continue
+            where.setdefault(fragment, set()).add(index)
+
+    # 去重：同一句里滑出来的多个片段往往只差一个字（出现集合不完全相同），
+    # 但它们讲的是同一件事。两条片段如果在 >=2 条回复里同时出现，就合并成一条。
+    candidates = sorted(
+        ((frag, frozenset(idx)) for frag, idx in where.items() if len(idx) >= min_count),
+        key=lambda item: (-len(item[1]), -len(item[0])),
+    )
+    accepted: list[tuple[str, frozenset[int]]] = []
+    for fragment, indexes in candidates:
+        if any(len(indexes & other) >= 2 for _, other in accepted):
+            continue
+        accepted.append((fragment, indexes))
+
+    return [(frag, len(idx)) for frag, idx in accepted[:limit]]
+
+
 def session_findings(features: list[TurnFeatures]) -> list[Finding]:
     """会话级规则：单看一句都合规，整段下来比例不对。
 
@@ -280,6 +316,11 @@ def session_findings(features: list[TurnFeatures]) -> list[Finding]:
     if interjection_rate > 0.5:
         findings.append(
             Finding("over_interjection", 2, f"{interjection_rate:.0%} 以语气词开头（阈值 50%）")
+        )
+
+    for fragment, count in formulaic_fragments([f.text for f in features]):
+        findings.append(
+            Finding("formulaic", 2, f"「{fragment}」在 {count} 条回复里重复出现")
         )
 
     return findings

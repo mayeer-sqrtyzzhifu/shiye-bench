@@ -8,6 +8,7 @@ from checks.rules import (  # noqa: E402
     analyze_turn,
     check_ai_patterns,
     check_invented_life,
+    formulaic_fragments,
     check_length,
     check_questions,
     check_repetition,
@@ -191,3 +192,37 @@ class TestInventedLife:
     def test_attitude_is_allowed(self):
         assert check_invented_life("我以前也这么问过自己。") == []
         assert check_invented_life("这话我听着挺凉的。") == []
+
+
+class TestFormulaic:
+    def test_repeated_sentence_is_flagged(self):
+        texts = [
+            "更沉了呀。你是想让我听着，还是一起捋捋。",
+            "挺常见的。你是想让我听着，还是一起捋捋。",
+            "最磨人。你是想让我听着，还是想一起捋捋。",
+        ]
+        hits = formulaic_fragments(texts)
+        assert hits, "同一句话说了三遍应该被抓到"
+        assert hits[0][1] >= 3
+
+    def test_diverse_replies_are_clean(self):
+        texts = [
+            "被这么一挡，是挺堵的。",
+            "这种事攒久了，人是会乏。",
+            "先放一放吧，不用今天都解决。",
+        ]
+        assert formulaic_fragments(texts) == []
+
+    def test_overlapping_windows_merge_into_one(self):
+        """同一句里滑出来的多个片段是同一个现象，不能各算一次。"""
+        texts = [
+            "你是想让我听着，还是一起捋捋。",
+            "你是想让我听着，还是一起捋捋吧。",
+            "你是想让我听着，还是一起捋捋呀。",
+        ]
+        hits = formulaic_fragments(texts, n=5)
+        assert len(hits) == 1, hits
+
+    def test_below_threshold_is_ignored(self):
+        texts = ["你是想让我听着，还是一起捋捋。", "今天天气不错。", "嗯。"]
+        assert formulaic_fragments(texts, n=5) == []
