@@ -26,9 +26,21 @@ docs/       文档
 ## 快速开始
 
 ```powershell
-# 采样并分析 SmileChat 语料
+# 1) 语料：采样 + 结构分析
 python scripts/fetch_smilechat.py --count 120
 python scripts/analyze_smilechat.py
+
+# 2) 用例
+python scripts/make_cases.py --count 30     # 单轮
+python scripts/make_arcs.py --count 6       # 多轮情绪弧
+
+# 3) 评测
+python run.py --provider fake                 # 单轮（零成本，确定性）
+python run_arcs.py --provider real            # 情绪弧
+python run_memory.py --provider real          # 跨天记忆
+
+# 4) 改完判据后重算，不必重跑模型
+python scripts/reanalyze.py
 ```
 
 > HuggingFace 直连不通时用镜像：`$env:HF_ENDPOINT = "https://hf-mirror.com"`
