@@ -87,6 +87,48 @@ def reanalyze_arcs(path: Path, payload: dict) -> int:
     return 0
 
 
+
+def reanalyze_memory(path: Path, payload: dict) -> int:
+    """记忆用例重算：对已存回复重新判定，不重跑模型。"""
+    from checks.memory import check_memory
+
+    cases = json.loads((ROOT / "cases" / "memory.json").read_text(encoding="utf-8"))["cases"]
+    by_id = {c["id"]: c for c in cases}
+
+    rows = []
+    hits = by_ref = abstains = 0
+    for item in payload["cases"]:
+        case = by_id.get(item["id"])
+        if case is None:
+            continue
+        reply = item["replies"][-1] if item["replies"] else ""
+        verdict = check_memory(reply, expect=case["expect"], forbid=case["forbid"])
+        if case.get("expect_abstain"):
+            verdict.hit = verdict.abstained
+            verdict.understood_by_reference = False
+        hits += 1 if verdict.hit else 0
+        by_ref += 1 if verdict.understood_by_reference else 0
+        abstains += 1 if (verdict.abstained and not verdict.hit) else 0
+        rows.append((item["id"], case["probe"]["text"], reply, verdict))
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = REPORTS / f"reanalyze-memory-{path.stem}-{stamp}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"# 记忆重算（{path.name}）\n"]
+    lines.append(f"- 重算时间：{datetime.now():%Y-%m-%d %H:%M}\n")
+    lines.append("| 用例 | 探测 | 回复 | 判定 |")
+    lines.append("|---|---|---|---|")
+    for cid, probe, reply, verdict in rows:
+        text = (reply or "").replace("|", "｜").replace("\n", " ")[:44]
+        lines.append(f"| {cid} | {probe} | {text} | {verdict.summary()} |")
+    lines.append("")
+    lines.append(f"**命中 {hits}/{len(rows)}｜指代理解 {by_ref}｜诚实弃答 {abstains}**")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"报告 -> {out.relative_to(ROOT)}")
+    print(f"命中 {hits}/{len(rows)}｜指代理解 {by_ref}｜诚实弃答 {abstains}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("run", nargs="?", default=None)
@@ -97,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if "sessions" in payload:
         return reanalyze_arcs(path, payload)
+    if "memory" in path.stem:
+        return reanalyze_memory(path, payload)
 
     rows = []
     for item in payload["cases"]:

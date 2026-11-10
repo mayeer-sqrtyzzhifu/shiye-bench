@@ -33,3 +33,18 @@ class TestVerdicts:
         """真实回复里出现过「记不得了」——词序和「不记得」相反。"""
         v = check_memory("记不得了。中间断了些事，我这边空着。", expect=["产品"], forbid=[])
         assert v.abstained
+
+
+class TestAbstainVariants:
+    """中文否认"不知道"的说法很多，这里锁住已经踩过的几种。"""
+
+    def test_negative_prefix_forms(self):
+        for text in ("这个我没记着", "我记不得了", "不太记得了", "我没有印象"):
+            assert check_memory(text, expect=["x"], forbid=[]).abstained, text
+
+    def test_soft_hedges(self):
+        for text in ("这个我说不准", "上周的事有点糊了"):
+            assert check_memory(text, expect=["x"], forbid=[]).abstained, text
+
+    def test_positive_recall_is_not_abstain(self):
+        assert not check_memory("记着呢，复查。", expect=["复查"], forbid=[]).abstained

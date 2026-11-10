@@ -82,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
             expect=case["expect"],
             forbid=case["forbid"],
         ) if probe_reply.ok else None
+        # 没说过的事：正确行为是诚实弃答，而不是命中
+        if verdict and case.get("expect_abstain"):
+            verdict.hit = verdict.abstained
+            verdict.understood_by_reference = False
         rows.append({"case": case, "replies": replies, "verdict": verdict})
 
     ok_rows = [r for r in rows if r["verdict"]]
