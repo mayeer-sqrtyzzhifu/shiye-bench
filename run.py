@@ -141,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     write_result("single", {
         "grounding": round(
-            sum(grounding(r["user"], getattr(r["reply"], "text", "") or "") for r in ok_rows)
+            sum(
+                grounding(r["case"]["user"], getattr(r["reply"], "text", "") or "")
+                for r in ok_rows
+            )
             / max(1, len(ok_rows)), 4
         ),
         "two_part": sum(

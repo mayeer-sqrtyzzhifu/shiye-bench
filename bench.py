@@ -94,12 +94,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=("fake", "real"), default="fake")
     parser.add_argument("--repeat", type=int, default=1, help="每维重复次数，取中位")
-    parser.add_argument("--skip", default="", help="逗号分隔，跳过某些维度")
+    parser.add_argument(
+        "--skip", default="voice",
+        help="逗号分隔，跳过某些维度；默认跳过 voice（它依赖人格运行结果）",
+    )
     args = parser.parse_args(argv)
 
     skip = {s.strip() for s in args.skip.split(",") if s.strip()}
-    # voice 依赖人格运行结果，默认不跑（要跑就显式指定）
-    skip = skip or {"voice"}
     dims = [d for d in DIMENSIONS if d not in skip]
 
     collected: dict[str, list[dict]] = {d: [] for d in dims}
