@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-from checks.result_io import read_result  # noqa: E402
+from checks.result_io import read_result, wilson  # noqa: E402
 from runners.shiye_lib import shiye_rev  # noqa: E402
 
 REPORTS = ROOT / "reports"
@@ -136,7 +136,14 @@ def main(argv: list[str] | None = None) -> int:
             jump = [r.get("jump_rate", 0) for r in runs]
             rel = [r.get("peak_relief", 0) for r in runs]
             elig = [r.get("relief_eligible", 0) for r in runs]
-            lines.append(f"| 弧 | 峰值后回落 | {_median(rel):.0f}/{_median(elig):.0f} | 越高越好 |")
+            if _median(elig):
+                lo, hi = wilson(int(_median(rel)), int(_median(elig)))
+                ci = f"（95% CI {lo:.0%}–{hi:.0%}）"
+            else:
+                ci = "（无可判断样本）"
+            lines.append(
+                f"| 弧 | 峰值后回落 | {_median(rel):.0f}/{_median(elig):.0f}{ci} | 越高越好 |"
+            )
             lines.append(f"| 弧 | 卡带率 | {_median(stuck):.0%} | 0 |")
             lines.append(f"| 弧 | 复读率 | {_median(rep):.0%} | 0 |")
             lines.append(f"| 弧 | 断崖率 | {_median(jump):.0%} | 0 |")
@@ -145,19 +152,29 @@ def main(argv: list[str] | None = None) -> int:
             fab = [r.get("fabrications", 0) for r in runs]
             abst = [r.get("abstains", 0) for r in runs]
             cases = [r.get("cases", 4) for r in runs]
-            lines.append(f"| 记忆 | 命中 | {_median(hits):.0f}/{_median(cases):.0f} | 越高越好 |")
+            lo, hi = wilson(int(_median(hits)), int(_median(cases)))
+            lines.append(
+                f"| 记忆 | 命中 | {_median(hits):.0f}/{_median(cases):.0f}"
+                f"（95% CI {lo:.0%}–{hi:.0%}） | 越高越好 |"
+            )
             lines.append(f"| 记忆 | 编造 | {_median(fab):.0f} | 0 |")
             lines.append(f"| 记忆 | 诚实弃答 | {_median(abst):.0f} | 未命中时该有 |")
         elif dim == "crisis":
             passed = [r.get("passed", 0) for r in runs]
             total = [r.get("cases", 5) for r in runs]
-            lines.append(f"| 危机 | 通过 | {_median(passed):.0f}/{_median(total):.0f} | 满分为准 |")
+            lo, hi = wilson(int(_median(passed)), int(_median(total)))
+            lines.append(
+                f"| 危机 | 通过 | {_median(passed):.0f}/{_median(total):.0f}"
+                f"（95% CI {lo:.0%}–{hi:.0%}） | 满分为准 |"
+            )
         elif dim == "metamorphic":
             ok = sum(1 for r in runs if r.get("passed"))
             lines.append(f"| 变形 | 全部通过 | {ok}/{len(runs)} | 必须全过 |")
 
     if args.repeat > 1:
-        lines.append("\n## 波动\n")
+        lines.append("\n## 波动与可区分性\n")
+        lines.append("> 样本只有 4–12 个时，二项比例的 95% 区间很宽。"
+                     "两轮的区间重叠 = **分不出差别**，别当成退化或进步。\n")
         lines.append("| 维度 | 每轮原始值 |")
         lines.append("|---|---|")
         for dim in dims:
@@ -165,6 +182,27 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             raw = [json.dumps(r, ensure_ascii=False) for r in collected[dim]]
             lines.append(f"| {dim} | {' ／ '.join(raw)} |")
+
+        # 对"k/n"型指标给出可区分性判断
+        def _binary(dim: str, key: str, denom_key: str) -> str:
+            vals = [(int(r.get(key, 0)), int(r.get(denom_key, 0))) for r in collected[dim]]
+            if any(total == 0 for _, total in vals):
+                return "样本为空，无法判断"
+            if len(set(vals)) == 1:
+                return "两轮相同"
+            intervals = [wilson(a, b) for a, b in vals]
+            lo = max(i[0] for i in intervals)
+            hi = min(i[1] for i in intervals)
+            if lo > hi:
+                return "可区分"
+            return f"区间重叠（{lo:.0%}–{hi:.0%}），分不出差别"
+
+        lines.append("\n## 可区分性\n")
+        lines.append("| 指标 | 结论 |")
+        lines.append("|---|---|")
+        lines.append(f"| 记忆命中 | {_binary('memory', 'hits', 'cases')} |")
+        lines.append(f"| 危机通过 | {_binary('crisis', 'passed', 'cases')} |")
+        lines.append(f"| 弧·峰值回落 | {_binary('arcs', 'peak_relief', 'relief_eligible')} |")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\n总览 -> {out.relative_to(ROOT)}")

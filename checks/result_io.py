@@ -42,3 +42,18 @@ def read_result(dim: str) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+
+
+def wilson(successes: int, total: int, z: float = 1.96) -> tuple[float, float]:
+    """二项比例的 Wilson 置信区间。
+
+    样本只有 4–12 个的时候，直接用点估计会骗人：
+    3/4 和 2/4 的 95% 区间大面积重叠，说不上"变好了"。
+    """
+    if total <= 0:
+        return (0.0, 0.0)
+    p_hat = successes / total
+    denom = 1 + z * z / total
+    centre = (p_hat + z * z / (2 * total)) / denom
+    margin = z * ((p_hat * (1 - p_hat) / total + z * z / (4 * total * total)) ** 0.5) / denom
+    return (max(0.0, centre - margin), min(1.0, centre + margin))

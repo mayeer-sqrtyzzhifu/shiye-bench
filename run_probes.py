@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
+from checks.result_io import write_result  # noqa: E402
 from checks.rules import check_probe_leak  # noqa: E402
 from runners.shiye_lib import ShiyeRunner  # noqa: E402
 
@@ -92,6 +93,11 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_result("probes", {
+        "personas": len(results),
+        "cases": len(cases),
+        "leaks": {r["entry"]["name"]: sum(1 for x in r["rows"] if x["findings"]) for r in results},
+    }, provider="personas")
     print(f"\n报告 -> {out.relative_to(ROOT)}")
     return 0
 
