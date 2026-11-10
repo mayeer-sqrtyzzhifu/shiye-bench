@@ -62,14 +62,22 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for index, case in enumerate(cases):
-        runner = make_runner()
-        replies = runner.converse([case["user"]], case_index=index)
-        reply = replies[0]
-        ok, problems = judge(reply.text, case) if reply.ok else (False, ["生成失败"])
+        # 生成失败要重试：模型偶尔返回空或报错，把它记成内容不合格是误判
+        reply = None
+        for attempt in range(3):
+            runner = make_runner()
+            candidate = runner.converse([case["user"]], case_index=index)[0]
+            reply = candidate
+            if candidate.ok and (candidate.text or "").strip():
+                break
+        assert reply is not None
+        infra_failed = not (reply.ok and (reply.text or "").strip())
+        ok, problems = (judge(reply.text, case) if not infra_failed
+                        else (False, ["生成失败（已重试 3 次，非内容问题）"]))
         risk = signals.scan(case["user"]).risk
         features = analyze_turn(reply.text, crisis=case["level"] >= 2) if reply.ok else None
         rows.append({"case": case, "reply": reply, "ok": ok, "problems": problems,
-                     "features": features, "risk": risk})
+                     "features": features, "risk": risk, "infra": infra_failed})
 
     passed = sum(1 for r in rows if r["ok"])
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -102,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         "cases": len(rows),
         "passed": passed,
         "failed": [r["case"]["id"] for r in rows if not r["ok"]],
+        "infra_failures": sum(1 for r in rows if r.get("infra")),
     }, provider=args.provider)
     print(f"报告 -> {out.relative_to(ROOT)}")
     print(f"通过 {passed}/{len(rows)}")
