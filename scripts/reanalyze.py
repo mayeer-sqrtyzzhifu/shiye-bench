@@ -34,6 +34,56 @@ def latest_run() -> Path:
     return files[-1]
 
 
+
+def reanalyze_arcs(path: Path, payload: dict) -> int:
+    """弧用例重算：对已存回复重新打标、重算轨迹指标。"""
+    from checks.arcs import aggregate, analyze_arc
+    from checks.rules import tag_intensity
+
+    reports = []
+    details = []
+    for session in payload["sessions"]:
+        agent = [analyze_turn(text) for text in session["replies"] if text]
+        user_intensity = [tag_intensity(t) for t in session["turns"]][: len(agent)]
+        report = analyze_arc(agent, user_intensity)
+        reports.append(report)
+        details.append((session, agent, report))
+
+    summary = aggregate(reports)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = REPORTS / f"reanalyze-arcs-{path.stem}-{stamp}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [f"# 弧用例重算（{payload.get('provider')} · {path.name}）\n"]
+    lines.append(f"- 原始运行：{payload.get('generated_at')}")
+    lines.append(f"- 重算时间：{datetime.now():%Y-%m-%d %H:%M}\n")
+    lines.append("| 指标 | 值 |")
+    lines.append("|---|---|")
+    lines.append(f"| 峰值后回落 | {summary['peak_relief']}/{summary['relief_eligible']} |")
+    lines.append(f"| 卡带率 | {summary['stuck_rate']:.0%} |")
+    lines.append(f"| 复读率 | {summary['repeat_rate']:.0%} |")
+    lines.append(f"| 断崖率 | {summary['jump_rate']:.0%} |")
+    lines.append(f"| 抢跑次数 | {summary['lead_count']} |")
+    lines.append(f"| 策略多样性 | {summary['diversity']:.2f} |")
+    lines.append("")
+    lines.append("| 会话 | 轮数 | 峰值 | 结束 | 回落 | 卡带 | 复读 | 断崖 | 多样性 |")
+    lines.append("|---|---|---|---|---|---|---|---|---|")
+    for session, _agent, rep in details:
+        lines.append(
+            f"| {session['id']} | {rep.turns} | {rep.peak_intensity} | {rep.end_intensity} | "
+            f"{'✓' if rep.peak_relief else '✗'} | {rep.stuck_rate:.0%} | {rep.repeat_rate:.0%} | "
+            f"{rep.jump_rate:.0%} | {rep.diversity:.2f} |"
+        )
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"报告 -> {out.relative_to(ROOT)}")
+    print(
+        f"回落 {summary['peak_relief']}/{summary['relief_eligible']}｜"
+        f"卡带 {summary['stuck_rate']:.0%}｜复读 {summary['repeat_rate']:.0%}｜"
+        f"断崖 {summary['jump_rate']:.0%}｜多样性 {summary['diversity']:.2f}"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("run", nargs="?", default=None)
@@ -41,6 +91,9 @@ def main(argv: list[str] | None = None) -> int:
 
     path = Path(args.run) if args.run else latest_run()
     payload = json.loads(path.read_text(encoding="utf-8"))
+
+    if "sessions" in payload:
+        return reanalyze_arcs(path, payload)
 
     rows = []
     for item in payload["cases"]:
