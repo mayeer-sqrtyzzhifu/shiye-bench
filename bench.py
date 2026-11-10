@@ -41,9 +41,10 @@ DIMENSIONS = {
 
 
 def run_single(provider: str) -> int:
+    """用全部用例跑。实测 240 条能把可测下限从 23pp 压到 12pp。"""
     import run as mod
 
-    return mod.main(["--provider", provider, "--limit", "60"])
+    return mod.main(["--provider", provider, "--limit", "240"])
 
 
 def run_arcs(provider: str) -> int:

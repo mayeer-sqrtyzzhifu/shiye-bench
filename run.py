@@ -55,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--cases", default=str(CASES))
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--samples", type=int, default=1,
+        help="每条用例生成几次。>1 时按用例取比例，方差分解见报告",
+    )
     args = parser.parse_args(argv)
 
     cases = load_cases(Path(args.cases))[: args.limit]
@@ -62,10 +66,19 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for index, case in enumerate(cases):
-        replies = runner.converse([case["user"]], case_index=index)
-        reply = replies[0]
+        draws = []
+        for sample in range(max(1, args.samples)):
+            # 每次采样都用全新的库，保证是独立的一次生成
+            fresh = build_runner(args.provider)
+            replies = fresh.converse([case["user"]], case_index=index)
+            draw = replies[0]
+            if draw.ok and draw.text:
+                draws.append(draw)
+        reply = draws[0] if draws else runner.converse([case["user"]], case_index=index)[0]
         features = analyze_turn(reply.text) if reply.ok and reply.text else None
-        rows.append({"case": case, "reply": reply, "features": features})
+        per_sample = [analyze_turn(d.text) for d in draws]
+        rows.append({"case": case, "reply": reply, "features": features,
+                     "draws": per_sample})
 
     # ── 汇总
     ok_rows = [r for r in rows if r["features"]]
@@ -137,6 +150,30 @@ def main(argv: list[str] | None = None) -> int:
             error = reply.notes.get("error", "empty")
             lines.append(f"| {case['id']} | {user_text} | ⚠️ {error} | - | - | - | - |")
     lines.append("")
+
+    if args.samples > 1:
+        from checks.variance import decompose
+
+        drawn = [r["draws"] for r in rows if len(r.get("draws", [])) >= 2]
+        if drawn:
+            lines.append("")
+            lines.append("## 方差分解\n")
+            lines.append("> 每条用例采样多次，可以把总方差拆成「用例之间」和「用例之内」。"
+                         "后者靠多采样能压掉，前者不能。\n")
+            for name, flagger in (
+                ("二段式", lambda f: two_part_template(f.text)),
+                ("带问句", lambda f: f.strategy == "提问"),
+            ):
+                series = [[bool(flagger(f)) for f in d] for d in drawn]
+                dec = decompose(series)
+                lines.append(
+                    f"- **{name}**：每条采 {dec.samples} 次｜用例间方差 {dec.case_variance:.3f}"
+                    f"｜用例内方差 {dec.within:.3f}"
+                )
+                lines.append(
+                    f"  - 可测下限：k=1 约 {dec.floor(1):.0%}；k={dec.samples} 约 "
+                    f"{dec.floor(dec.samples):.0%}（降到原来的 {dec.relative_gain(dec.samples):.0%}）"
+                )
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     write_result("single", {
