@@ -32,7 +32,7 @@ PROMPT = """你是对话评测员。下面是一段对话。
 回复：{reply}
 
 问题：这条回复是否{question}？
-
+{hint}
 只输出一个字：是 或 否。不要解释。"""
 
 
@@ -47,7 +47,7 @@ def build_prompt(user_text: str, reply: str, need: str) -> str:
     question = NEED_QUESTIONS.get(need)
     if question is None:
         raise ValueError(f"未知需求类型：{need}")
-    return PROMPT.format(user=user_text, reply=reply, question=question)
+    return PROMPT.format(user=user_text, reply=reply, question=question, hint="")
 
 
 _YES = re.compile(r"^\s*(?:是|对|yes|y)", re.IGNORECASE)
@@ -67,9 +67,14 @@ def parse_answer(raw: str) -> bool | None:
 
 
 def judge_question(provider, question: str, user_text: str, reply: str,
-                   *, max_tokens: int = 400) -> Verdict:
-    """任意二元问题的通用判官。"""
-    prompt = PROMPT.format(user=user_text, reply=reply, question=question)
+                   *, hint: str = "", max_tokens: int = 400) -> Verdict:
+    """任意二元问题的通用判官。
+
+    ``hint`` 用来补这个模型已知的盲点。比如"有没有编造自己的生活"这一问，
+    不加提示时它会把「没养呢」也判成"有生活"——**否定和含糊回避分不清**。
+    """
+    hint_block = f"\n注意：{hint}\n" if hint else ""
+    prompt = PROMPT.format(user=user_text, reply=reply, question=question, hint=hint_block)
     try:
         completion = provider.stream(
             "你是严格但公正的对话评测员。",

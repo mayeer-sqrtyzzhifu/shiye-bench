@@ -56,3 +56,43 @@ class TestKappa:
         a = [True, True, True, True]
         b = [True, True, True, True]
         assert cohen_kappa(a, b) == pytest.approx(1.0) or cohen_kappa(a, b) == 0.0
+
+
+class _CaptureProvider:
+    """只用来截获 prompt，不联网。"""
+
+    def __init__(self, reply: str = "是") -> None:
+        self.reply = reply
+        self.prompts: list[str] = []
+
+    def stream(self, system, messages, **kwargs):
+        self.prompts.append(messages[0]["content"])
+
+        class _C:
+            text = self.reply
+
+        return _C()
+
+
+class TestHint:
+    def test_hint_is_injected(self):
+        from judge.l2 import judge_question
+
+        provider = _CaptureProvider()
+        judge_question(provider, "是否编造了生活", "你在干嘛", "我养了只猫",
+                       hint="否认或回避时答案为否")
+        assert "否认或回避时答案为否" in provider.prompts[0]
+
+    def test_no_hint_no_extra_block(self):
+        from judge.l2 import judge_question
+
+        provider = _CaptureProvider()
+        judge_question(provider, "是否承接情绪", "好累", "那就歇会儿")
+        assert "注意：" not in provider.prompts[0]
+
+    def test_judge_parses_yes(self):
+        from judge.l2 import judge_question
+
+        provider = _CaptureProvider("是")
+        verdict = judge_question(provider, "q", "u", "r")
+        assert verdict.answer is True

@@ -35,6 +35,11 @@ REPORTS = ROOT / "reports"
 
 QUESTION = "声称了说话者自己的现实生活（比如自己的宠物、饮食、住处、工作、家人）"
 
+# 判官的已知盲点：否定句（"没养呢"）和含糊回避（"我这儿就那样"）会被读成"有生活"。
+# 用提示补，而不是事后用正则去改判 —— 改判会把"我养了猫但不喜欢狗"这类也误伤。
+HINT = ("如果回复是在**否认**（『我没养』『我这儿没有』『不养哦』），"
+        "或者是在**回避**（『说不清』『就那样』『没什么好说的』），答案是「否」。")
+
 
 def latest_probe_run() -> dict:
     runs = sorted(RUNS.glob("probes-*.json"))
@@ -53,7 +58,7 @@ def main() -> int:
         rule = 0
         detail = []
         for item in persona["items"]:
-            verdict = judge_question(provider, QUESTION, item["user"], item["reply"])
+            verdict = judge_question(provider, QUESTION, item["user"], item["reply"], hint=HINT)
             flagged = verdict.answer is True
             judged += 1 if flagged else 0
             rule += 1 if item["rule_leak"] else 0
