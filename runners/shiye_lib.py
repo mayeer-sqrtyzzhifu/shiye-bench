@@ -77,7 +77,7 @@ class ShiyeRunner:
         self._tmpdir = tempfile.mkdtemp(prefix="shiye-bench-")
 
 
-    def _extract_now(self, conn, result, user_text: str) -> None:
+    def _extract_now(self, conn, result, user_text: str, moment=None) -> None:
         """把 web 服务里的异步抽取在这里同步跑掉。
 
         这是 lib 模式最容易被忽略的差别：不跑抽取，跨天记忆就只剩原文 FTS，
@@ -86,11 +86,18 @@ class ShiyeRunner:
         if result.user_message_id is None:
             return
         turn_id = f"{result.session_id}:{result.turn_index}"
-        extract_mod.enqueue_extract(conn, turn_id, {
+        from datetime import timezone
+
+        payload = {
             "user_text": user_text,
             "assistant_text": result.reply,
             "evidence_ids": [result.user_message_id],
-        })
+        }
+        # 记忆时间必须跟对话时间一致，否则仿真里记忆会落在"未来"，
+        # 模型看到时间戳比现在还晚，就不敢用这条记忆了
+        if moment is not None:
+            payload["now"] = moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        extract_mod.enqueue_extract(conn, turn_id, payload)
         try:
             extract_mod.run_pending(conn, self.provider)
         except Exception as exc:  # noqa: BLE001 - 抽取失败不该中断对话
@@ -130,7 +137,7 @@ class ShiyeRunner:
                     )
                     replies.append(Reply(text=result.reply, notes=dict(result.notes)))
                     if self.with_extraction and result.persisted:
-                        self._extract_now(conn, result, text)
+                        self._extract_now(conn, result, text, moment)
                 except Exception as exc:  # noqa: BLE001 - 单个用例失败不该中断整批
                     replies.append(Reply(text="", ok=False, notes={"error": f"{type(exc).__name__}: {exc}"}))
         finally:
