@@ -1,0 +1,14 @@
+# 下载的语料与临时产物，不进版本库
+data/
+*.jsonl
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# 编辑器
+.idea/
+.vscode/
