@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from checks.rules import analyze_turn  # noqa: E402
+from checks.rules import analyze_turn, session_findings  # noqa: E402
 
 RUNS = ROOT / "data" / "runs"
 REPORTS = ROOT / "reports"
@@ -106,6 +106,8 @@ def main(argv: list[str] | None = None) -> int:
     strategy = Counter(r["features"].strategy for r in ok_rows)
     intensity = Counter(r["features"].intensity for r in ok_rows)
     findings = Counter(f.code for r in ok_rows for f in r["features"].findings)
+    for item in session_findings([r["features"] for r in ok_rows]):
+        findings[item.code] += 1
     interjection = sum(1 for r in ok_rows if r["features"].starts_with_interjection)
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")

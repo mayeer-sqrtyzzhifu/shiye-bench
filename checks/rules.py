@@ -165,7 +165,7 @@ def tag_intensity(text: str) -> int:
 # ───────────────────────────────────────── 规则
 
 
-def check_length(text: str, *, lo: int = 10, hi: int = 60) -> list[Finding]:
+def check_length(text: str, *, lo: int = 10, hi: int = 80) -> list[Finding]:
     size = _cjk_len(text)
     if size < lo:
         return [Finding("too_short", 1, f"{size} < {lo}")]
@@ -268,7 +268,9 @@ def session_findings(features: list[TurnFeatures]) -> list[Finding]:
     findings: list[Finding] = []
     n = len(features)
 
-    question_rate = sum(1 for f in features if f.questions > 0) / n
+    # 用策略标签而不是问号个数：中文大量问句不带"？"
+    # （"你是想先说说，还是想一起捋捋。"），只数问号会低估一半
+    question_rate = sum(1 for f in features if f.strategy == "提问") / n
     if question_rate > 0.5:
         findings.append(
             Finding("over_questions", 2, f"{question_rate:.0%} 的回复带问句（阈值 50%）")
@@ -288,7 +290,9 @@ def analyze_turn(
     *,
     previous: str = "",
     crisis: bool = False,
-    length_range: tuple[int, int] = (10, 60),
+    # 上限取 80：人格自己写的是「常见 10–50，情绪重时可到 80」。
+    # 之前写 60 比人格更严，会把合规的回复判成超长。
+    length_range: tuple[int, int] = (10, 80),
     max_questions: int = 1,
 ) -> TurnFeatures:
     """对一条回复跑全部 L1 规则，并打上策略/强度标签。"""

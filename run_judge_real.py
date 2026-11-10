@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-from checks.result_io import write_result  # noqa: E402
+from checks.result_io import wilson, write_result  # noqa: E402
 from judge.l2 import judge_question  # noqa: E402
 from runners.shiye_lib import _ensure_shiye_on_path  # noqa: E402
 
@@ -150,7 +150,8 @@ def main(argv: list[str] | None = None) -> int:
         for qname in QUESTIONS:
             r = table[label][qname]
             rate = r["yes"] / r["total"] if r["total"] else 0
-            cells.append(f"{r['yes']}/{r['total']}（{rate:.0%}）")
+            lo, hi = wilson(r["yes"], r["total"]) if r["total"] else (0, 0)
+            cells.append(f"{r['yes']}/{r['total']}（{rate:.0%}，CI {lo:.0%}–{hi:.0%}）")
         lines.append(f"| {label} | {cells[0]} | {cells[1]} |")
 
     lines.append("\n## 问法原文\n")
