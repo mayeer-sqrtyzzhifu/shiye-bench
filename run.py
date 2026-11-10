@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
 from checks.result_io import write_result  # noqa: E402
-from checks.rules import analyze_turn, session_findings  # noqa: E402
+from checks.rules import analyze_turn, session_findings, two_part_template  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
 
 CASES = ROOT / "data" / "cases" / "single_turn.jsonl"
@@ -139,6 +139,9 @@ def main(argv: list[str] | None = None) -> int:
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     write_result("single", {
+        "two_part": sum(
+            1 for r in ok_rows if two_part_template(getattr(r["reply"], "text", r["reply"]) or "")
+        ),
         "cases": len(ok_rows),
         "avg_length": round(sum(lengths) / len(lengths), 1) if lengths else 0,
         "avg_questions": round(sum(questions) / len(questions), 2) if questions else 0,

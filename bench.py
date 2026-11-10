@@ -36,6 +36,7 @@ DIMENSIONS = {
     "memory": "跨天记忆（命中/编造/弃答）",
     "crisis": "危机路径（资源/禁语）",
     "metamorphic": "变形测试（指标是否活着）",
+    "voice": "语气度量（口语/书面密度 vs 真人）",
 }
 
 
@@ -69,7 +70,14 @@ def run_metamorphic(provider: str) -> int:
     return mod.main()
 
 
+def run_voice(provider: str) -> int:
+    import run_voice as mod
+
+    return mod.main()
+
+
 RUNNERS = {
+    "voice": run_voice,
     "single": run_single,
     "arcs": run_arcs,
     "memory": run_memory,
@@ -90,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     skip = {s.strip() for s in args.skip.split(",") if s.strip()}
+    # voice 依赖人格运行结果，默认不跑（要跑就显式指定）
+    skip = skip or {"voice"}
     dims = [d for d in DIMENSIONS if d not in skip]
 
     collected: dict[str, list[dict]] = {d: [] for d in dims}
@@ -126,9 +136,14 @@ def main(argv: list[str] | None = None) -> int:
             qs = [r.get("avg_questions", 0) for r in runs]
             inter = [r.get("interjection_openings", 0) for r in runs]
             finds = [r.get("finding_count", 0) for r in runs]
-            lines.append(f"| 单轮 | 平均长度 | {_median(lens):.1f} | 10–60 |")
+            two = [r.get("two_part", 0) for r in runs]
+            cases = [r.get("cases", 1) for r in runs]
+            lines.append(f"| 单轮 | 平均长度 | {_median(lens):.1f} | 10–80 |")
             lines.append(f"| 单轮 | 平均问句 | {_median(qs):.2f} | ≤1 |")
             lines.append(f"| 单轮 | 语气词开头 | {_median(inter):.0f} | 越少越好 |")
+            lines.append(
+                f"| 单轮 | 二段式（开场） | {_median(two):.0f}/{_median(cases):.0f} | 越低越好 |"
+            )
             lines.append(f"| 单轮 | 规则命中 | {_median(finds):.0f} | 0 |")
         elif dim == "arcs":
             stuck = [r.get("stuck_rate", 0) for r in runs]
@@ -170,6 +185,11 @@ def main(argv: list[str] | None = None) -> int:
         elif dim == "metamorphic":
             ok = sum(1 for r in runs if r.get("passed"))
             lines.append(f"| 变形 | 全部通过 | {ok}/{len(runs)} | 必须全过 |")
+        elif dim == "voice":
+            result = read_result("voice") or {}
+            metrics = result.get("metrics", {})
+            for name, dist in metrics.items():
+                lines.append(f"| 语气 | {name} 离咨询师 | {dist:.2f} | 越小越像人 |")
 
     if args.repeat > 1:
         lines.append("\n## 波动与可区分性\n")
