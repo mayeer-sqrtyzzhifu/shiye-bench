@@ -26,6 +26,7 @@ docs/       文档
 ## 先读什么
 
 - `docs/findings.md` —— **发现登记表**：benchmark 提过哪些问题、改没改、验证没验证
+- `docs/reproduce.md` —— **复现指南**：文档里每个数字对应哪条命令
 - `HANDOFF.md` —— 设计初衷、与现实的偏差、能测什么/不能测什么
 - `docs/worklog.md` —— 逐轮的完整过程（包括走过的弯路）
 
