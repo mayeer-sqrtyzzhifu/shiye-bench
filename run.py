@@ -20,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
+from checks.grounding import grounding  # noqa: E402
 from checks.result_io import write_result  # noqa: E402
 from checks.rules import analyze_turn, session_findings, two_part_template  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
@@ -139,6 +140,10 @@ def main(argv: list[str] | None = None) -> int:
 
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     write_result("single", {
+        "grounding": round(
+            sum(grounding(r["user"], getattr(r["reply"], "text", "") or "") for r in ok_rows)
+            / max(1, len(ok_rows)), 4
+        ),
         "two_part": sum(
             1 for r in ok_rows if two_part_template(getattr(r["reply"], "text", r["reply"]) or "")
         ),
