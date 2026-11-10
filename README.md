@@ -44,7 +44,11 @@ python scripts/extract_personas.py     # 从 shiye git 历史取 5 版人格
 python run_personas.py                 # 通用用例对照
 python run_probes.py                   # 定向探针（问 agent 自己的生活）
 
-# 5) 改完判据后重算，不必重跑模型
+# 5) 自检：指标是不是活的、危机路径对不对
+python run_metamorphic.py              # 7 组变形，指标不动就报错
+python run_crisis.py --provider real   # 危机用例
+
+# 6) 改完判据后重算，不必重跑模型
 python scripts/reanalyze.py
 ```
 
