@@ -52,6 +52,14 @@ _SENTENCE_SPLIT = re.compile(r"[。！？!?\n]+")
 # 开头语气词（上一版人格出过"每句都先来一个"的问题，专门盯着）
 _INTERJECTIONS = ("嗯", "诶", "欸", "唔", "哎呀", "啊呀", "哦", "噢")
 
+# 虚构自己的生活：第一人称 + 具体生活细节。
+# 人格一旦写了"养猫/做饭"，模型就会顺着往下编；被追问时只能继续编。
+# 只抓具体生活，不抓"我理解""我也觉得"这类态度表达——后者是允许的。
+_INVENTED_LIFE = re.compile(
+    r"我.{0,4}(养|做|煮|炒)了|我家的(猫|狗)|"
+    r"我.{0,4}(在|去)(公司|上班|单位)|我(弟弟|妹妹)|我家(在|住)"
+)
+
 # AI 腔的固定句式
 _AI_PATTERNS: tuple[tuple[str, str, int], ...] = (
     ("contrast", r"不是[^。！？\n]{0,20}而是", 2),
@@ -189,6 +197,31 @@ def check_forbidden_phrases(text: str) -> list[Finding]:
     ]
 
 
+def check_invented_life(text: str) -> list[Finding]:
+    """回复里出现"我养了猫/我做了饭"这类编造的具体生活。
+
+    这是 p4→p5 那版人格要解决的问题，也是为什么需要定向探针：
+    通用用例里这种泄露是低频的（12 条命中 0 次），直接问"你养猫吗"才测得出来。
+    """
+    match = _INVENTED_LIFE.search(text)
+    if match:
+        return [Finding("invented_life", 2, match.group(0))]
+    return []
+
+
+def check_probe_leak(text: str, forbid: list[str]) -> list[Finding]:
+    """按探针配置的禁词判断"有没有声称自己的现实生活"。
+
+    为什么不用通用规则：中文常省略主语（"养着呢""煮了点面"），
+    只匹配"我+动词"会漏掉大部分编造。命中了就用一个可读的片段报出来。
+    """
+    for pattern in forbid:
+        match = re.search(pattern, text)
+        if match:
+            return [Finding("invented_life", 2, match.group(0))]
+    return []
+
+
 def check_crisis_resources(text: str, *, required: bool) -> list[Finding]:
     if not required:
         return []
@@ -220,6 +253,36 @@ def check_repetition(previous: str, current: str, *, threshold: float = 0.4) -> 
 # ───────────────────────────────────────── 汇总
 
 
+def session_findings(features: list[TurnFeatures]) -> list[Finding]:
+    """会话级规则：单看一句都合规，整段下来比例不对。
+
+    两条都直接来自人格自己的声明：
+    * "问句至多出现在一半的回复里"
+    * "上一轮开头用了语气词，这一轮就直接说事"
+
+    单轮规则抓不到它们——p3 那版每一句都以语气词开头，可每一句单看都不违规。
+    """
+    if not features:
+        return []
+
+    findings: list[Finding] = []
+    n = len(features)
+
+    question_rate = sum(1 for f in features if f.questions > 0) / n
+    if question_rate > 0.5:
+        findings.append(
+            Finding("over_questions", 2, f"{question_rate:.0%} 的回复带问句（阈值 50%）")
+        )
+
+    interjection_rate = sum(1 for f in features if f.starts_with_interjection) / n
+    if interjection_rate > 0.5:
+        findings.append(
+            Finding("over_interjection", 2, f"{interjection_rate:.0%} 以语气词开头（阈值 50%）")
+        )
+
+    return findings
+
+
 def analyze_turn(
     text: str,
     *,
@@ -234,6 +297,7 @@ def analyze_turn(
     findings += check_questions(text, max_questions=max_questions)
     findings += check_ai_patterns(text)
     findings += check_forbidden_phrases(text)
+    findings += check_invented_life(text)
     findings += check_crisis_resources(text, required=crisis)
     findings += check_repetition(previous, text)
 

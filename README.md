@@ -39,7 +39,12 @@ python run.py --provider fake                 # 单轮（零成本，确定性�
 python run_arcs.py --provider real            # 情绪弧
 python run_memory.py --provider real          # 跨天记忆
 
-# 4) 改完判据后重算，不必重跑模型
+# 4) 已知组校准：同一批用例跑历代人格，验证判据能不能复现已知好坏
+python scripts/extract_personas.py     # 从 shiye git 历史取 5 版人格
+python run_personas.py                 # 通用用例对照
+python run_probes.py                   # 定向探针（问 agent 自己的生活）
+
+# 5) 改完判据后重算，不必重跑模型
 python scripts/reanalyze.py
 ```
 

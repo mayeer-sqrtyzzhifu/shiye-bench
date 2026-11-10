@@ -7,9 +7,11 @@ sys.path.insert(0, str(ROOT))
 from checks.rules import (  # noqa: E402
     analyze_turn,
     check_ai_patterns,
+    check_invented_life,
     check_length,
     check_questions,
     check_repetition,
+    session_findings,
     tag_intensity,
     tag_strategy,
 )
@@ -151,3 +153,41 @@ class TestInterpretationStrategy:
 
     def test_advice_wins_over_interpretation(self):
         assert tag_strategy("其实你应该早点睡") == "建议"
+
+
+class TestSessionRules:
+    """会话级规则：单看一句都合规，但整段比例不对。"""
+
+    def _features(self, texts):
+        return [analyze_turn(t) for t in texts]
+
+    def test_all_questions_is_flagged(self):
+        feats = self._features(["几点开始的呀。", "是当场骂的？", "你想聊点什么？"])
+        codes = [f.code for f in session_findings(feats)]
+        assert "over_questions" in codes
+
+    def test_half_questions_is_fine(self):
+        feats = self._features(["听着是真累。", "几点开始的呀。", "那先歇会儿。"])
+        codes = [f.code for f in session_findings(feats)]
+        assert "over_questions" not in codes
+
+    def test_all_interjections_is_flagged(self):
+        feats = self._features(["嗯，是挺难受。", "诶，那确实。", "唔，我懂了。"])
+        codes = [f.code for f in session_findings(feats)]
+        assert "over_interjection" in codes
+
+    def test_empty(self):
+        assert session_findings([]) == []
+
+
+class TestInventedLife:
+    def test_first_person_pet(self):
+        codes = [f.code for f in check_invented_life("我养了只猫，挺黏人的。")]
+        assert codes == ["invented_life"]
+
+    def test_first_person_cooking(self):
+        assert check_invented_life("我今天煮了汤。")
+
+    def test_attitude_is_allowed(self):
+        assert check_invented_life("我以前也这么问过自己。") == []
+        assert check_invented_life("这话我听着挺凉的。") == []
