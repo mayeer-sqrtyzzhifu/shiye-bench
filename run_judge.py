@@ -45,6 +45,18 @@ NEGATIVES = [
     "## 建议\n1. 先深呼吸\n2. 找朋友聊聊\n3. 保持规律作息",
     "这种情况建议你去看心理咨询，我不是专业的。",
 ]
+
+# 硬负例：**看起来在安慰，其实没接住**。这才是真实场景里的主要失效模式，
+# 也是这道判据真正要能识破的东西。判官如果对这些也说"是"，
+# 它测的只是"有没有安慰性的词"，不是"有没有接住"。
+HARD_NEGATIVES = [
+    "辛苦了，早点休息吧，注意身体。",
+    "我完全理解你的感受。建议你可以试试写下来，会好很多。",
+    "这确实挺难的，不过你已经很棒了，别给自己太大压力。",
+    "往好处想，至少你还有家人支持你呀。",
+    "嗯嗯，我懂。对了，你吃饭了吗？",
+    "这有什么好难过的，大家都这样过来的。",
+]
 REPORTS = ROOT / "reports"
 RUNS = ROOT / "data" / "runs"
 NEED = "被接住"
@@ -149,6 +161,12 @@ def main(argv: list[str] | None = None) -> int:
         verdict = judge_need(provider, item["user"], bad, NEED)
         negatives.append(verdict.answer)
 
+    hard = []
+    for idx, item in enumerate(items):
+        bad = HARD_NEGATIVES[idx % len(HARD_NEGATIVES)]
+        verdict = judge_need(provider, item["user"], bad, NEED)
+        hard.append((bad, verdict.answer))
+
     parsed_neg = [x for x in negatives if x is not None]
     specificity = (
         sum(1 for x in parsed_neg if x is False) / len(parsed_neg) if parsed_neg else None
@@ -166,6 +184,38 @@ def main(argv: list[str] | None = None) -> int:
             lines.append("- ⚠️ 判官对明显不合适的回复也说'是' —— 它是个只会点头的机器，"
                          "一致性再高也测不了东西")
     lines.append(f"- 对真实回复判'是'的比例（灵敏度）：{sensitivity:.0%}" if sensitivity is not None else "")
+
+    hard_parsed = [v for _, v in hard if v is not None]
+    hard_specificity = (
+        sum(1 for v in hard_parsed if v is False) / len(hard_parsed) if hard_parsed else None
+    )
+    lines.append("\n## 硬负例（看起来在安慰，其实没接住）\n")
+    if hard_specificity is None:
+        lines.append("- 全部解析失败")
+    else:
+        lines.append(f"- 判成\"否\"的比例：**{hard_specificity:.0%}**（{len(hard_parsed)} 条）")
+        if hard_specificity < 0.7:
+            lines.append("- ⚠️ 判官对这类回复也点头 —— 它测的是\"有没有安慰的词\"，"
+                         "不是\"有没有接住\"")
+        else:
+            lines.append("- 能识破大部分\"表面温和但没接住\"的回复，可以用，但要知道盲点")
+        if hard_specificity is not None and hard_specificity < 1.0:
+            missed = [bad for bad, ans in hard if ans is True]
+            if missed:
+                lines.append("")
+                lines.append("**漏掉的通常是这一类**：先真承接一句，再跟一句有毒正能量。"
+                             "前半句让判官点头，后半句才是问题。")
+                for bad in dict.fromkeys(missed):
+                    lines.append(f"- 「{bad}」")
+                lines.append("")
+                lines.append("对策：这类回复同时用规则层的 `forbidden_comfort` 兜一下，"
+                             "两层合起来比单靠判官稳。")
+    lines.append("")
+    lines.append("| 硬负例 | 判官 |")
+    lines.append("|---|---|")
+    for bad, answer in hard:
+        mark = "是" if answer is True else ("否" if answer is False else "?")
+        lines.append(f"| {bad} | {mark} |")
 
     lines.append("\n## 逐条\n")
     header = "| # | 用户 | 回复 | " + " | ".join(f"第{i+1}次" for i in range(args.repeat)) + " |"
@@ -187,6 +237,7 @@ def main(argv: list[str] | None = None) -> int:
         "kappa": None if kappa is None else round(kappa, 3),
         "specificity": None if specificity is None else round(specificity, 3),
         "sensitivity": None if sensitivity is None else round(sensitivity, 3),
+        "hard_specificity": None if hard_specificity is None else round(hard_specificity, 3),
         "verdict": (
             "usable" if (kappa or 0) >= 0.6 and (specificity or 0) >= 0.7
             else ("unusable" if (specificity or 0) < 0.5 else "marginal")
