@@ -35,6 +35,7 @@ class ArcReport:
     repeat_rate: float
     lead_count: int
     diversity: float
+    question_rate: float = 0.0
     findings: dict[str, int] = field(default_factory=dict)
 
     def summary(self) -> str:
@@ -60,6 +61,9 @@ def analyze_arc(
     n = len(agent)
     if n == 0:
         return ArcReport(0, None, 0, 0, True, False, 0.0, 0.0, 0.0, 0, 0.0)
+
+    # 提问率：人格写着"问句至多一半"，多个轮次连着问就是公式化
+    question_rate = sum(1 for f in agent if f.strategy == "提问") / n
 
     intensities = [f.intensity for f in agent]
     peak = max(intensities)
@@ -128,6 +132,7 @@ def analyze_arc(
         repeat_rate=repeats / n,
         lead_count=lead,
         diversity=diversity,
+        question_rate=question_rate,
         findings=findings,
     )
 
@@ -147,4 +152,5 @@ def aggregate(reports: list[ArcReport]) -> dict:
         "jump_rate": sum(r.jump_rate * r.turns for r in reports) / total_turns,
         "lead_count": sum(r.lead_count for r in reports),
         "diversity": sum(r.diversity for r in reports) / len(reports),
+        "question_rate": sum(r.question_rate * r.turns for r in reports) / total_turns,
     }

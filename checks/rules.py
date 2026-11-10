@@ -289,7 +289,9 @@ def formulaic_fragments(
     return [(frag, len(idx)) for frag, idx in accepted[:limit]]
 
 
-def session_findings(features: list[TurnFeatures]) -> list[Finding]:
+def session_findings(
+    features: list[TurnFeatures], *, same_conversation: bool = True
+) -> list[Finding]:
     """会话级规则：单看一句都合规，整段下来比例不对。
 
     两条都直接来自人格自己的声明：
@@ -306,8 +308,11 @@ def session_findings(features: list[TurnFeatures]) -> list[Finding]:
 
     # 用策略标签而不是问号个数：中文大量问句不带"？"
     # （"你是想先说说，还是想一起捋捋。"），只数问号会低估一半
+    # 注意：这条只在**同一段对话**里有意义。把一批互不相干的用户开场白
+    # 当成一段对话来算提问率是范畴错误 —— 实测开场白提问率 62%，
+    # 而真实多轮对话里只有 32%（第 2 轮起降到 12–43%）。
     question_rate = sum(1 for f in features if f.strategy == "提问") / n
-    if question_rate > 0.5:
+    if same_conversation and question_rate > 0.5:
         findings.append(
             Finding("over_questions", 2, f"{question_rate:.0%} 的回复带问句（阈值 50%）")
         )

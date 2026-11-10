@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     strategy = Counter(r["features"].strategy for r in ok_rows)
     intensity = Counter(r["features"].intensity for r in ok_rows)
     findings = Counter(f.code for r in ok_rows for f in r["features"].findings)
-    for item in session_findings([r["features"] for r in ok_rows]):
+    for item in session_findings([r["features"] for r in ok_rows], same_conversation=False):
         findings[item.code] += 1
     interjection = sum(1 for r in ok_rows if r["features"].starts_with_interjection)
 

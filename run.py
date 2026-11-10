@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     finding_codes = Counter(f.code for r in ok_rows for f in r["features"].findings)
     # 会话级规则（问句率 / 语气词开头率）以前只在人格对比脚本里跑，
     # 单轮汇总漏了 —— 而"问句太多"恰恰是最常触发的一条
-    for item in session_findings([r["features"] for r in ok_rows]):
+    for item in session_findings([r["features"] for r in ok_rows], same_conversation=False):
         finding_codes[item.code] += 1
     interjection = sum(1 for r in ok_rows if r["features"].starts_with_interjection)
 

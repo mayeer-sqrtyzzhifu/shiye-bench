@@ -107,7 +107,9 @@ def main(argv: list[str] | None = None) -> int:
         interj = sum(1 for f in features if f.starts_with_interjection)
         q_rate = sum(1 for f in features if f.questions > 0) / n
         questions = q_rate
-        session = session_findings(features)
+        # 这里比较的是 12 个互不相干的用户开场，不是一段对话，
+        # 所以不能套用"对话内提问率"规则（同 run.py）
+        session = session_findings(features, same_conversation=False)
         # 按严重度加权；会话级问题**按轮数放大**——
         # "每一句都以语气词开头"是系统性失效，不该和"偶有一句过长"同分。
         turn_score = sum(item.severity for f in features for item in f.findings)

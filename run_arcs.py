@@ -109,14 +109,14 @@ def main(argv: list[str] | None = None) -> int:
     lines.append("")
 
     lines.append("## 逐段\n")
-    lines.append("| 会话 | 轮数 | 峰值 | 结束 | 回落 | 卡带 | 复读 | 断崖 | 多样性 |")
+    lines.append("| 会话 | 轮数 | 峰值 | 结束 | 回落 | 卡带 | 复读 | 断崖 | 提问率 | 多样性 |")
     lines.append("|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         rep = row["report"]
         lines.append(
             f"| {row['arc']['id']} | {rep.turns} | {rep.peak_intensity} | {rep.end_intensity} | "
             f"{'✓' if rep.peak_relief else '✗'} | {rep.stuck_rate:.0%} | {rep.repeat_rate:.0%} | "
-            f"{rep.jump_rate:.0%} | {rep.diversity:.2f} |"
+            f"{rep.jump_rate:.0%} | {rep.question_rate:.0%} | {rep.diversity:.2f} |"
         )
     lines.append("")
 
@@ -143,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         "jump_rate": round(summary.get("jump_rate", 0), 3),
         "lead_count": summary.get("lead_count", 0),
         "diversity": round(summary.get("diversity", 0), 2),
+        "question_rate": round(summary.get("question_rate", 0), 3),
     }, provider=args.provider)
     print(f"原始 -> {run_file.relative_to(ROOT)}")
     print(f"报告 -> {out.relative_to(ROOT)}")
