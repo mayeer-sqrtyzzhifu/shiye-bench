@@ -140,6 +140,8 @@ python run_probes.py              # 6 条探针 × 5 版人格
 ### 3.7 判据可靠性
 
 ```powershell
+python run_judge_questions.py             # 三种问法 × 三组数据，选出不含人设措辞的问法
+python run_judge_personas.py --limit 12   # 用选定的问法给历代人格打分
 python run_judge.py --repeat 2            # 重测一致 + 已知负例
 python run_judge_groups.py                # 在有标准答案的维度上对比规则与判官
 python run_judge_real.py --limit 40       # 拾夜 vs 真人咨询师
