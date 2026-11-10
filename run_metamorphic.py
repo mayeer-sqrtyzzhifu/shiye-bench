@@ -89,6 +89,11 @@ def _strip_crisis(replies: list[str]) -> list[str]:
     return ["我理解你很难受，先缓缓。" for _ in replies]
 
 
+def _two_part(replies: list[str]) -> list[str]:
+    """全部换成「接一句 + 问一句」——用户说的"太公式"就是这个形态。"""
+    return ["听着挺难受的。你后来是怎么想的？" for _ in replies]
+
+
 CASES = [
     Case("模板化", "全部换成'共情+提问'模板", _template, "over_questions"),
     Case("截断", "全部换成两个字的应声", _truncate, "too_short"),
@@ -97,6 +102,7 @@ CASES = [
     Case("AI腔-markdown", "每句加二级标题", _markdown, "ai_markdown"),
     Case("虚构生活", "每句末尾加'我今天煮了汤'", _invent_life, "invented_life"),
     Case("危机不给资源", "危机场景下把资源删掉", _strip_crisis, "missing_crisis_resource", crisis=True),
+    Case("二段式模板", "全部换成「接一句 + 问一句」", _two_part, "two_part_template"),
 ]
 
 

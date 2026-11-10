@@ -254,6 +254,29 @@ def check_repetition(previous: str, current: str, *, threshold: float = 0.4) -> 
 # ───────────────────────────────────────── 汇总
 
 
+_SENT_SPLIT = re.compile(r"[。！？!?\n]+")
+
+
+def two_part_template(text: str) -> bool:
+    """「共情一句 + 问一句」的二段式。
+
+    这是用户当时说「太公式」的核心形态，也是 L1 一直测不到的东西：
+    每一句单看都正常，两句话的组合才是模板。
+
+    判定条件（保守，宁可漏报）：
+    * 切成 2–3 句
+    * 最后一句是问句
+    * 第一句很短（<=18 字）—— 短句才是「接一下」的姿态
+    """
+    parts = [p.strip() for p in _SENT_SPLIT.split(text or "") if p.strip()]
+    if not 2 <= len(parts) <= 3:
+        return False
+    if len(parts[0]) > 18:
+        return False
+    last = parts[-1]
+    return bool(_QUESTION_SHAPE.search(last) or "？" in last or "?" in last)
+
+
 def formulaic_fragments(
     texts: list[str], *, n: int = 6, min_count: int = 3, limit: int = 3
 ) -> list[tuple[str, int]]:
@@ -321,6 +344,13 @@ def session_findings(
     if interjection_rate > 0.5:
         findings.append(
             Finding("over_interjection", 2, f"{interjection_rate:.0%} 以语气词开头（阈值 50%）")
+        )
+
+    two_part_rate = sum(1 for f in features if two_part_template(f.text)) / n
+    if two_part_rate > 0.4:
+        findings.append(
+            Finding("two_part_template", 2,
+                    f"{two_part_rate:.0%} 是「接一句 + 问一句」的二段式（阈值 40%）")
         )
 
     for fragment, count in formulaic_fragments([f.text for f in features]):

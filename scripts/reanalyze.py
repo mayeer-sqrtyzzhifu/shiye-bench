@@ -65,6 +65,9 @@ def reanalyze_arcs(path: Path, payload: dict) -> int:
     lines.append(f"| 断崖率 | {summary['jump_rate']:.0%} |")
     lines.append(f"| 抢跑次数 | {summary['lead_count']} |")
     lines.append(f"| 策略多样性 | {summary['diversity']:.2f} |")
+    if "two_part_rate" in summary:
+        lines.append(f"| 二段式（整体） | {summary['two_part_rate']:.0%} |")
+        lines.append(f"| 二段式（开场） | {summary.get('opener_two_part', 0)}/{summary['sessions']} |")
     lines.append("")
     lines.append("| 会话 | 轮数 | 峰值 | 结束 | 回落 | 卡带 | 复读 | 断崖 | 多样性 |")
     lines.append("|---|---|---|---|---|---|---|---|---|")

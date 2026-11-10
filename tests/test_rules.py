@@ -9,6 +9,7 @@ from checks.rules import (  # noqa: E402
     check_ai_patterns,
     check_invented_life,
     formulaic_fragments,
+    two_part_template,
     check_length,
     check_questions,
     check_repetition,
@@ -226,3 +227,26 @@ class TestFormulaic:
     def test_below_threshold_is_ignored(self):
         texts = ["你是想让我听着，还是一起捋捋。", "今天天气不错。", "嗯。"]
         assert formulaic_fragments(texts, n=5) == []
+
+
+class TestTwoPartTemplate:
+    """「接一句 + 问一句」——用户说的"太公式"。"""
+
+    def test_short_reaction_plus_question(self):
+        assert two_part_template("被这么一挡，话就噎回去了吧。他是每次都这样，还是就那一件事不肯说。")
+
+    def test_single_statement_is_not_template(self):
+        assert not two_part_template("被这么一挡，是挺堵的。")
+
+    def test_long_lead_is_not_template(self):
+        long_lead = "你说的这件事我觉得可以从另外一个角度来理解，先别急着下结论。" * 1
+        assert not two_part_template(long_lead + "你怎么想？")
+
+    def test_no_question_is_not_template(self):
+        assert not two_part_template("听着挺难受的。慢慢来。")
+
+    def test_three_parts_allowed(self):
+        assert two_part_template("挺累的。这段时间不容易。你是怎么熬过来的？")
+
+    def test_empty_safe(self):
+        assert not two_part_template("")

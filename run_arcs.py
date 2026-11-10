@@ -144,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
         "lead_count": summary.get("lead_count", 0),
         "diversity": round(summary.get("diversity", 0), 2),
         "question_rate": round(summary.get("question_rate", 0), 3),
+        "two_part_rate": round(summary.get("two_part_rate", 0), 3),
+        "opener_two_part": summary.get("opener_two_part", 0),
     }, provider=args.provider)
     print(f"原始 -> {run_file.relative_to(ROOT)}")
     print(f"报告 -> {out.relative_to(ROOT)}")

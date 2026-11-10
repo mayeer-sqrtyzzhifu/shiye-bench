@@ -36,6 +36,8 @@ class ArcReport:
     lead_count: int
     diversity: float
     question_rate: float = 0.0
+    two_part_rate: float = 0.0
+    opener_two_part: bool = False
     findings: dict[str, int] = field(default_factory=dict)
 
     def summary(self) -> str:
@@ -64,6 +66,10 @@ def analyze_arc(
 
     # 提问率：人格写着"问句至多一半"，多个轮次连着问就是公式化
     question_rate = sum(1 for f in agent if f.strategy == "提问") / n
+    from checks.rules import two_part_template
+
+    two_part = [two_part_template(f.text) for f in agent]
+    two_part_rate = sum(two_part) / n
 
     intensities = [f.intensity for f in agent]
     peak = max(intensities)
@@ -133,6 +139,8 @@ def analyze_arc(
         lead_count=lead,
         diversity=diversity,
         question_rate=question_rate,
+        two_part_rate=two_part_rate,
+        opener_two_part=two_part[0] if two_part else False,
         findings=findings,
     )
 
@@ -153,4 +161,6 @@ def aggregate(reports: list[ArcReport]) -> dict:
         "lead_count": sum(r.lead_count for r in reports),
         "diversity": sum(r.diversity for r in reports) / len(reports),
         "question_rate": sum(r.question_rate * r.turns for r in reports) / total_turns,
+        "two_part_rate": sum(r.two_part_rate * r.turns for r in reports) / total_turns,
+        "opener_two_part": sum(1 for r in reports if r.opener_two_part),
     }

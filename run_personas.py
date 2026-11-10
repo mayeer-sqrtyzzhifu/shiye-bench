@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-from checks.rules import analyze_turn, session_findings  # noqa: E402
+from checks.rules import analyze_turn, session_findings, two_part_template  # noqa: E402
 from runners.shiye_lib import ShiyeRunner  # noqa: E402
 
 CASES = ROOT / "data" / "cases" / "single_turn.jsonl"
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     lines = [f"# 已知组校准（{len(cases)} 条单轮用例 × {len(results)} 版人格）\n"]
     lines.append(f"- 生成时间：{datetime.now():%Y-%m-%d %H:%M}\n")
     lines.append("## 对照表\n")
-    lines.append("| 版本 | 说明 | 平均长度 | 过短 | 过长 | 语气词开头 | 问句率 | 会话级问题 | 问题率 |")
+    lines.append("| 版本 | 说明 | 平均长度 | 过短 | 过长 | 语气词开头 | 二段式 | 问句率 | 会话级问题 | 问题率 |")
     lines.append("|---|---|---|---|---|---|---|---|---|")
 
     summary = []
@@ -105,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         short = sum(1 for f in features if any(x.code == "too_short" for x in f.findings))
         long_ = sum(1 for f in features if any(x.code == "too_long" for x in f.findings))
         interj = sum(1 for f in features if f.starts_with_interjection)
+        two_part = sum(1 for f in features if two_part_template(f.text))
         q_rate = sum(1 for f in features if f.questions > 0) / n
         questions = q_rate
         # 这里比较的是 12 个互不相干的用户开场，不是一段对话，
@@ -117,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         rate = (turn_score + session_score) / n
         summary.append({
             "name": entry["name"],
+            "two_part": two_part,
             "note": entry["note"],
             "avg_len": sum(lengths) / len(lengths) if lengths else 0,
             "problem_rate": rate,
@@ -124,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         lines.append(
             f"| {entry['name']} | {entry['note']} | "
             f"{sum(lengths)/len(lengths):.1f} | {short} | {long_} | "
-            f"{interj}/{n} | {questions:.2f} | "
+            f"{interj}/{n} | {two_part}/{n} | {questions:.2f} | "
             f"{', '.join(x.code for x in session) or '-'} | {rate:.2f} |"
         )
 
