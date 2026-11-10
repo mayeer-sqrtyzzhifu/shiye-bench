@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -59,16 +60,19 @@ def main(argv: list[str] | None = None) -> int:
         "--samples", type=int, default=1,
         help="每条用例生成几次。>1 时按用例取比例，方差分解见报告",
     )
+    parser.add_argument(
+        "--workers", type=int, default=1,
+        help="并发数。调用是远程 API，串行时大部分时间在等网络",
+    )
     args = parser.parse_args(argv)
 
     cases = load_cases(Path(args.cases))[: args.limit]
     runner = build_runner(args.provider)
 
-    rows = []
-    for index, case in enumerate(cases):
+    def run_case(index: int, case: dict) -> dict:
         draws = []
-        for sample in range(max(1, args.samples)):
-            # 每次采样都用全新的库，保证是独立的一次生成
+        for _ in range(max(1, args.samples)):
+            # 每次采样都用全新的库与独立连接，保证是独立的一次生成
             fresh = build_runner(args.provider)
             replies = fresh.converse([case["user"]], case_index=index)
             draw = replies[0]
@@ -76,9 +80,19 @@ def main(argv: list[str] | None = None) -> int:
                 draws.append(draw)
         reply = draws[0] if draws else runner.converse([case["user"]], case_index=index)[0]
         features = analyze_turn(reply.text) if reply.ok and reply.text else None
-        per_sample = [analyze_turn(d.text) for d in draws]
-        rows.append({"case": case, "reply": reply, "features": features,
-                     "draws": per_sample})
+        return {"case": case, "reply": reply, "features": features,
+                "draws": [analyze_turn(d.text) for d in draws]}
+
+    indexed = list(enumerate(cases))
+    if args.workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+
+        started = time.time()
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            rows = list(pool.map(lambda pair: run_case(*pair), indexed))
+        print(f"并发 {args.workers}：{len(rows)} 条用了 {time.time() - started:.0f} 秒")
+    else:
+        rows = [run_case(index, case) for index, case in indexed]
 
     # ── 汇总
     ok_rows = [r for r in rows if r["features"]]

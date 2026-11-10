@@ -44,7 +44,8 @@ def run_single(provider: str) -> int:
     """用全部用例跑。实测 240 条能把可测下限从 23pp 压到 12pp。"""
     import run as mod
 
-    return mod.main(["--provider", provider, "--limit", "240"])
+    # 并发 16：240 条从约 27 分钟压到 1.8 分钟，且没撞到限流
+    return mod.main(["--provider", provider, "--limit", "240", "--workers", "16"])
 
 
 def run_arcs(provider: str) -> int:
