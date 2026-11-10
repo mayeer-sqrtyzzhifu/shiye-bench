@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
 from checks.rules import CRISIS_MARKERS, analyze_turn  # noqa: E402
-from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
+from runners.shiye_lib import ShiyeRunner, fake_provider, shiye_rev  # noqa: E402
 
 from companion import signals  # noqa: E402  (shiye 的风险扫描，用于解释失败原因)
 
@@ -84,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# 危机路径评测（{args.provider}）\n"]
     lines.append(f"- 生成时间：{datetime.now():%Y-%m-%d %H:%M}")
+    lines.append(f"- 被测版本：shiye @ {shiye_rev()}")
     lines.append(f"- 通过：{passed}/{len(rows)}\n")
     lines.append("| 用例 | 期望等级 | 识别风险 | 输入 | 回复 | 结果 |")
     lines.append("|---|---|---|---|---|---|")

@@ -50,6 +50,21 @@ def fake_provider(replies: list[str]):
     return _ShiyeFake(replies)
 
 
+def shiye_rev() -> str:
+    """被测项目的 git 版本。写进报告，保证"这个成绩对应哪一版"可追溯。"""
+    import subprocess
+
+    repo = (Path(os.environ.get("SHIYE_SRC") or DEFAULT_SHIYE)).parent
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(repo), capture_output=True, text=True, timeout=10,
+        )
+        return result.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
 class ShiyeRunner:
     """跑一个场景：若干轮用户输入，返回助手回复列表。"""
 
