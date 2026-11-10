@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
 from checks.arcs import aggregate, analyze_arc  # noqa: E402
+from checks.result_io import write_result  # noqa: E402
 from checks.rules import analyze_turn, tag_intensity  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
 
@@ -132,6 +133,17 @@ def main(argv: list[str] | None = None) -> int:
         lines.append("")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_result("arcs", {
+        "sessions": summary.get("sessions", 0),
+        "turns": summary.get("turns", 0),
+        "peak_relief": summary.get("peak_relief", 0),
+        "relief_eligible": summary.get("relief_eligible", 0),
+        "stuck_rate": round(summary.get("stuck_rate", 0), 3),
+        "repeat_rate": round(summary.get("repeat_rate", 0), 3),
+        "jump_rate": round(summary.get("jump_rate", 0), 3),
+        "lead_count": summary.get("lead_count", 0),
+        "diversity": round(summary.get("diversity", 0), 2),
+    }, provider=args.provider)
     print(f"原始 -> {run_file.relative_to(ROOT)}")
     print(f"报告 -> {out.relative_to(ROOT)}")
     if summary:

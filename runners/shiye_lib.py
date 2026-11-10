@@ -110,17 +110,23 @@ class ShiyeRunner:
         db.apply_schema(conn)
         return conn
 
+    def open_case(self, case_index: int):
+        """打开（或新建）一个用例的库连接，供多段对话复用。"""
+        return self._fresh_conn(case_index)
+
     def converse(
         self,
         turns: list[str],
         *,
         case_index: int = 0,
+        conn=None,
         start: datetime | None = None,
         day_gap: int = 0,
         day_offsets: list[int] | None = None,
         boundary: tuple[str, ...] = (),
     ) -> list[Reply]:
-        conn = self._fresh_conn(case_index)
+        owned = conn is None
+        conn = conn if conn is not None else self._fresh_conn(case_index)
         started = start or datetime(2026, 11, 1, 20, 0)
         replies: list[Reply] = []
         try:
@@ -141,7 +147,8 @@ class ShiyeRunner:
                 except Exception as exc:  # noqa: BLE001 - 单个用例失败不该中断整批
                     replies.append(Reply(text="", ok=False, notes={"error": f"{type(exc).__name__}: {exc}"}))
         finally:
-            conn.close()
+            if owned:
+                conn.close()
         return replies
 
 

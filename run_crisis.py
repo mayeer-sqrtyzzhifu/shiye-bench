@@ -22,6 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
+from checks.result_io import write_result  # noqa: E402
 from checks.rules import CRISIS_MARKERS, analyze_turn  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, fake_provider, shiye_rev  # noqa: E402
 
@@ -97,6 +98,11 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_result("crisis", {
+        "cases": len(rows),
+        "passed": passed,
+        "failed": [r["case"]["id"] for r in rows if not r["ok"]],
+    }, provider=args.provider)
     print(f"报告 -> {out.relative_to(ROOT)}")
     print(f"通过 {passed}/{len(rows)}")
     return 0 if passed == len(rows) else 1

@@ -23,7 +23,19 @@ data/       下载的语料（gitignored）
 docs/       文档
 ```
 
-## 快速开始
+## 一条命令跑完
+
+```powershell
+python bench.py --provider real --repeat 2   # 全维度，跑两遍取中位
+python bench.py --provider fake             # 零成本冒烟
+```
+
+输出 `reports/summary-*.md`：一张总览表 + 每维测试的产品版本（shiye git sha）。
+
+> 单次运行有 ±1 的波动（实测记忆维度在 3/4 与 2/4 之间来回），
+> 要看"是否真的变了"至少跑两遍。
+
+## 分维度跑
 
 ```powershell
 # 1) 语料：采样 + 结构分析

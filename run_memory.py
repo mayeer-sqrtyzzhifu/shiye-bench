@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
 from checks.memory import check_memory  # noqa: E402
+from checks.result_io import write_result  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
 
 CASES = ROOT / "cases" / "memory.json"
@@ -36,6 +37,8 @@ FAKE_ABSTAIN = ["我这儿没存下那段，不记得了。"]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=("fake", "fabricate", "abstain", "real"), default="fake")
+    parser.add_argument("--forget", action="store_true",
+                        help="埋点之后清空记忆库 —— 命中率必须掉到 0，否则说明命中不是来自记忆")
     args = parser.parse_args(argv)
 
     def make_runner():
@@ -52,10 +55,28 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for index, case in enumerate(cases):
-        turns = [p["text"] for p in case["plant"]] + [case["probe"]["text"]]
-        offsets = [p["day"] for p in case["plant"]] + [case["probe"]["day"]]
-        replies = make_runner().converse(turns, case_index=index, day_offsets=offsets)
-        probe_reply = replies[-1]
+        runner = make_runner()
+        conn = runner.open_case(index)
+        try:
+            plant_turns = [p["text"] for p in case["plant"]]
+            plant_offsets = [p["day"] for p in case["plant"]]
+            plant_replies = runner.converse(
+                plant_turns, case_index=index, conn=conn, day_offsets=plant_offsets
+            )
+            if args.forget:
+                # 变形：把记忆库清空，但保留会话本身
+                conn.execute("DELETE FROM memory_items")
+                conn.execute("DELETE FROM messages")
+                conn.execute("DELETE FROM messages_fts")
+                conn.execute("DELETE FROM memories_fts")
+                conn.commit()
+            probe_reply = runner.converse(
+                [case["probe"]["text"]], case_index=index, conn=conn,
+                day_offsets=[case["probe"]["day"]],
+            )[-1]
+            replies = plant_replies + [probe_reply]
+        finally:
+            conn.close()
         verdict = check_memory(
             probe_reply.text,
             expect=case["expect"],
@@ -109,6 +130,14 @@ def main(argv: list[str] | None = None) -> int:
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"原始 -> {run_file.relative_to(ROOT)}")
+    write_result("memory", {
+        "cases": len(ok_rows),
+        "hits": hits,
+        "by_reference": by_ref,
+        "fabrications": fabrications,
+        "abstains": abstains,
+        "forget": args.forget,
+    }, provider=args.provider)
     print(f"报告 -> {out.relative_to(ROOT)}")
     print(f"命中 {hits}/{len(ok_rows)}｜指代理解 {by_ref}｜编造 {fabrications}｜诚实弃答 {abstains}")
     return 0
