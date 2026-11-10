@@ -69,11 +69,14 @@ class ShiyeRunner:
     """跑一个场景：若干轮用户输入，返回助手回复列表。"""
 
     def __init__(self, *, provider=None, persona_text: str | None = None,
-                 with_extraction: bool = True) -> None:
+                 with_extraction: bool = True, temperature: float | None = None) -> None:
         self.persona_text = persona_text or persona_mod.DEFAULT_PERSONA.render()
         self.provider = provider or _default_provider()
         # web 服务里有抽取 worker，lib 模式没有；不显式跑就只测到原文 FTS 这一条路
         self.with_extraction = with_extraction
+        # 默认不传，沿用 shiye 自己的 0.8。评测时把它压到 0 可以大幅降低
+        # 同一个输入上的输出抖动 —— 代价是测的就不再是"线上的分布"了
+        self.temperature = temperature
         self._tmpdir = tempfile.mkdtemp(prefix="shiye-bench-")
 
 
@@ -135,11 +138,15 @@ class ShiyeRunner:
                 offset = day_offsets[step] if day_offsets else day_gap * step
                 moment = started + timedelta(days=offset)
                 try:
+                    kwargs = {}
+                    if self.temperature is not None:
+                        kwargs["temperature"] = self.temperature
                     result = turn_mod.run_turn(
                         conn, self.provider, text,
                         persona=self.persona_text,
                         boundaries=boundary,
                         now=moment,
+                        **kwargs,
                     )
                     replies.append(Reply(text=result.reply, notes=dict(result.notes)))
                     if self.with_extraction and result.persisted:
