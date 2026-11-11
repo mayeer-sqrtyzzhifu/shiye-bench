@@ -68,3 +68,23 @@ class TestRealAbstainReplies:
     def test_recall_is_not_abstain(self):
         for text in ("记着呢，复查。", "团子嘛，半夜跑酷那位。", "你妈催婚那事我记得。"):
             assert not check_memory(text, expect=["x"], forbid=[]).abstained, text
+
+
+class TestCheckerAgainstRealReplies:
+    """这些是扩到 32 条之后真实跑出来的回复，暴露了三个判分 bug。"""
+
+    def test_chinese_numeral_counts_as_hit(self):
+        assert check_memory("三十四呀。", expect=["34"], forbid=[]).hit
+        assert check_memory("四千五呀。", expect=["4500"], forbid=[]).hit
+
+    def test_forbidden_wins_over_expected(self):
+        """「不去」不能因为含「去」而被判命中，更不能同时记成编造。"""
+        v = check_memory("前几天不是说好不去了嘛。", expect=["去"], forbid=["不去"])
+        assert not v.hit
+        assert v.fabricated == ["不去"]
+
+    def test_missing_person_is_abstain(self):
+        assert check_memory("这个我哪知道呀。", expect=[], forbid=[]).abstained
+
+    def test_normal_recall_still_hits(self):
+        assert check_memory("姓陈。上周你还说他挺好的呢。", expect=["陈"], forbid=["王"]).hit
