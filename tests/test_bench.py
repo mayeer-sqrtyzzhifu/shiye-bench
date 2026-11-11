@@ -74,3 +74,17 @@ class TestFailureIsolation:
         ]}
         flags = per_case_flags(payload)
         assert set(flags) == {"a", "c"}, "失败用例不应进 flags，且必须按 id 索引"
+
+
+class TestLabelOrder:
+    """报告里的左右标签写反过一次，导致一条结论看起来整个反转。"""
+
+    def test_pairs_store_right_then_left(self):
+        import inspect
+
+        from run_persona_ablation import main  # noqa: F401
+
+        src = inspect.getsource(main)
+        assert 'pairs = [(r, l) for r, l in zip(right, left)' in src
+        assert '"left": sum(l for _, l in pairs)' in src
+        assert '"right": sum(r for r, _ in pairs)' in src

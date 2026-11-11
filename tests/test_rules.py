@@ -9,6 +9,7 @@ from checks.rules import (  # noqa: E402
     check_ai_patterns,
     check_invented_life,
     formulaic_fragments,
+    is_question,
     two_part_template,
     check_length,
     check_questions,
@@ -250,3 +251,52 @@ class TestTwoPartTemplate:
 
     def test_empty_safe(self):
         assert not two_part_template("")
+
+
+class TestQuestionDetection:
+    """问句判定是 F4 的构念基础，必须双向都对。
+
+    旧实现把「什么」「怎么」当独立触发词：四条陈述全被判成提问。
+    只按问号判又会漏掉一半——中文问句大量以「。」结尾。
+    """
+
+    STATEMENTS = [
+        "我没什么想说的。",
+        "这没什么不能聊的。",
+        "没什么，就是累。",
+        "我不知道怎么办。",
+        "你还是先去睡吧。",
+        "差不多了。",
+        "被这么一挡，是挺堵的。",
+    ]
+
+    QUESTIONS = [
+        "要不要说说？",
+        "疼不疼。",
+        "是最近哪件事，把你逼到这儿了。",
+        "他做什么了呀，能让你想到离职这一步。",
+        "现在是什么感觉，闷得慌，还是空落落的。",
+        "一般是从哪儿卡住的呢。",
+        "你是想让我听着，还是一起捋捋。",
+    ]
+
+    def test_statements_are_not_questions(self):
+        for text in self.STATEMENTS:
+            assert not is_question(text), text
+
+    def test_questions_are_detected(self):
+        for text in self.QUESTIONS:
+            assert is_question(text), text
+
+    def test_strategy_uses_the_same_predicate(self):
+        """策略标签必须和 is_question 一致，不能两套逻辑。"""
+        for text in self.QUESTIONS:
+            assert analyze_turn(text).strategy == "提问", text
+        for text in self.STATEMENTS:
+            assert analyze_turn(text).strategy != "提问", text
+
+    def test_soft_ending_wei_is_not_a_question(self):
+        """「呢」在这套人格里是软结尾，不是问号。"""
+        assert not is_question("说到这儿停下也行，我听着呢。")
+        assert not is_question("不急，你慢慢说呢。")
+

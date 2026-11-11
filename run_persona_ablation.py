@@ -111,14 +111,16 @@ def main(argv: list[str] | None = None) -> int:
     for name, metric in METRICS.items():
         left = rates(arms["left"], metric)
         right = rates(arms["right"], metric)
-        pairs = [(a, b) for a, b in zip(right, left) if a is not None and b is not None]
-        lower = sum(1 for a, b in pairs if a < b)
-        higher = sum(1 for a, b in pairs if a > b)
+        # 注意顺序：pairs 里第一个是 right、第二个是 left。
+        # 之前把 sum(a) 写进了 "left"，报告的左右整体互换过一次。
+        pairs = [(r, l) for r, l in zip(right, left) if r is not None and l is not None]
+        lower = sum(1 for r, l in pairs if r < l)
+        higher = sum(1 for r, l in pairs if r > l)
         if len(pairs) < 0.8 * len(right):
             print(f"  {name}: 有效配对只有 {len(pairs)}/{len(right)}，实验作废")
         report[name] = {
-            "left": sum(a for a, _ in pairs) / max(1, len(pairs)),
-            "right": sum(b for _, b in pairs) / max(1, len(pairs)),
+            "left": sum(l for _, l in pairs) / max(1, len(pairs)),
+            "right": sum(r for r, _ in pairs) / max(1, len(pairs)),
             "dropped": len(right) - len(pairs),
             "lower": lower,
             "higher": higher,
@@ -128,10 +130,10 @@ def main(argv: list[str] | None = None) -> int:
     left_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else None for d in arms["left"]]
     right_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else None for d in arms["right"]]
     len_pairs = [
-        (a, b) for a, b in zip(right_len, left_len) if a is not None and b is not None
+        (r, l) for r, l in zip(right_len, left_len) if r is not None and l is not None
     ]
-    left_len = [b for _, b in len_pairs]
-    right_len = [a for a, _ in len_pairs]
+    left_len = [l for _, l in len_pairs]
+    right_len = [r for r, _ in len_pairs]
     shorter = sum(1 for a, b in zip(right_len, left_len) if a < b)
     longer = sum(1 for a, b in zip(right_len, left_len) if a > b)
     report["平均长度"] = {

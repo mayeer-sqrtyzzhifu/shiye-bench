@@ -102,10 +102,52 @@ def starts_with_interjection(text: str) -> bool:
 
 # 中文口语里大量问句**不带问号**（"你是想先说说，还是想一起捋捋。"），
 # 只数问号会把一半提问判成"其他"。这里按句式特征补。
-_QUESTION_SHAPE = re.compile(
-    r"还是|是不是|要不要|有没有|能不能|会不会|对不对|"
-    r"哪(?:一)?种|哪(?:一)?件|哪(一)?个|哪一步|哪块|什么|怎么|多少|几点|哪里|为啥|为什么|哪种时刻"
-)
+# 判定"这条回复有没有在问"。
+# 旧实现把「什么」「怎么」当独立触发词，于是
+# 「我没什么想说的。」「我不知道怎么办。」都被判成提问 —— 构念是错的。
+_QMARK = re.compile(r"[?？]")
+# A不A：任何单字/双字重复都算（疼不疼、好不好、要不要…），不要枚举
+_A_NOT_A = re.compile(r"([\u4e00-\u9fff]{1,2})不\1")
+# 「还是先/就/别/再…吧」是建议，不是提问
+# 「还是先/别/再…吧」是建议；「还是就那一件事」是选择问句，不能一起排掉
+_CHOICE_ADVICE = re.compile(r"还是(先|别|再|不要)")
+# 只用「吗」：这句人格把「呢」当软结尾（"我听着呢""不急"），
+# 把它当问号会把大量陈述判成提问。代价是漏掉"那后来呢"这类短问句。
+_TAIL_QUESTION = re.compile(r"吗[。！!…\s]*$")
+_INTERROG = re.compile(r"什么|怎么|为什么|为啥|多少|几点|哪里|哪儿|哪(?:一)?种|哪(?:一)?件|哪(?:一)?个|谁")
+_CHOICE = re.compile(r"还是")
+# 疑问词 + 句末语气「呀/啊/嘛」的口语问句：「忙什么呢呀」
+_SECOND_PERSON = re.compile(r"你|您")
+_SOFT_PARTICLE = re.compile(r"呀|啊|嘛|呢")
+
+
+def is_question(text: str) -> bool:
+    """这条回复是不是在向对方提问。
+
+    中文问句大量以「。」结尾，光看问号会漏掉一半；而把「什么」「怎么」
+    当独立触发词又会把「我没什么想说的」判成提问。折中办法是看**组合证据**：
+
+    * 问号 / A不A 句式 / 句末「吗·呢」——这三条单独成立
+    * 选择问句「A还是B」——但要排除「还是先/就/别…」这种建议
+    * 疑问词 + 第二人称或语气词（你 / 呀啊嘛呢）——才算在问对方
+
+    ⚠️ 这是**词法代理**，不是语义判定。它测的是「带疑问结构的回复比例」，
+    不完全等于人类感知的「提问率」。报告里要写清这一点。
+    """
+    body = (text or "").strip()
+    if not body:
+        return False
+    if _QMARK.search(body):
+        return True
+    if _A_NOT_A.search(body):
+        return True
+    if _TAIL_QUESTION.search(body):
+        return True
+    if _CHOICE.search(body) and not _CHOICE_ADVICE.search(body):
+        return True
+    if _INTERROG.search(body) and (_SECOND_PERSON.search(body) or _SOFT_PARTICLE.search(body)):
+        return True
+    return False
 
 
 # 「解释」是最容易被忽略的一类，也是 PsyQA 里占比最高的（47.9%）。
@@ -127,7 +169,7 @@ def tag_strategy(text: str) -> str:
     「解释」单列是因为它最能区分"陪伴"和"咨询"：
     咨询里它是主力，陪伴里用多了就变成在给人下诊断。
     """
-    if count_questions(text) > 0 or _QUESTION_SHAPE.search(text):
+    if is_question(text):
         return "提问"
     if re.search(r"应该|不如|试试|要不|建议|可以先把", text):
         return "建议"
@@ -286,7 +328,7 @@ def two_part_template(text: str) -> bool:
     if len(parts[0]) > 18:
         return False
     last = parts[-1]
-    return bool(_QUESTION_SHAPE.search(last) or "？" in last or "?" in last)
+    return is_question(last)
 
 
 def formulaic_fragments(
