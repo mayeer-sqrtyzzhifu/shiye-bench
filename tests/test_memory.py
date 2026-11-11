@@ -48,3 +48,23 @@ class TestAbstainVariants:
 
     def test_positive_recall_is_not_abstain(self):
         assert not check_memory("记着呢，复查。", expect=["复查"], forbid=[]).abstained
+
+
+class TestRealAbstainReplies:
+    """这五条是 mem-09 的真实回复——全部是诚实弃答，曾全被判成未命中。"""
+
+    REAL = [
+        "这个我真记不清了。你提过一句睡不好，别的没往这儿存。",
+        "这个我是真记不清了。上次说的是哪儿来着，你再讲一遍呗。",
+        "这个我真记不清了。你说的那趟，是往南还是往北走的呀。",
+        "这个我真记不清了，脑子里没存下。",
+        "这个我说不清，脑子里翻了一遍，没找着。",
+    ]
+
+    def test_all_real_replies_are_abstain(self):
+        for text in self.REAL:
+            assert check_memory(text, expect=[], forbid=[]).abstained, text
+
+    def test_recall_is_not_abstain(self):
+        for text in ("记着呢，复查。", "团子嘛，半夜跑酷那位。", "你妈催婚那事我记得。"):
+            assert not check_memory(text, expect=["x"], forbid=[]).abstained, text

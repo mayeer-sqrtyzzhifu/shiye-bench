@@ -69,6 +69,10 @@ def run_case(case: dict, index: int) -> tuple[bool | None, str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--samples", type=int, default=5)
+    parser.add_argument(
+        "--compare", default="anaphoric",
+        help="要关掉的机制：anaphoric（指代兜底）或 hedge（不确定标注）",
+    )
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)
 
@@ -76,7 +80,11 @@ def main(argv: list[str] | None = None) -> int:
     arms: dict[str, list[list[bool]]] = {}
     samples_text: dict[str, list[str]] = {}
 
-    for label, ablate in (("有兜底", ""), ("无兜底", "anaphoric")):
+    if args.compare == "hedge":
+        labels = ("有标注", "无标注")
+    else:
+        labels = ("有兜底", "无兜底")
+    for label, ablate in zip(labels, ("", args.compare)):
         os.environ["SHIYE_ABLATE"] = ablate
         started = time.time()
         rows: list[list[bool]] = [[] for _ in cases]
@@ -99,8 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{label}：{len(cases)} 条 × {args.samples} 次，用时 {time.time() - started:.0f} 秒")
     os.environ.pop("SHIYE_ABLATE", None)
 
-    with_fb = [sum(r) / len(r) if r else 0.0 for r in arms["有兜底"]]
-    without = [sum(r) / len(r) if r else 0.0 for r in arms["无兜底"]]
+    with_fb = [sum(r) / len(r) if r else 0.0 for r in arms[labels[0]]]
+    without = [sum(r) / len(r) if r else 0.0 for r in arms[labels[1]]]
     better = sum(1 for a, b in zip(with_fb, without) if a > b)
     worse = sum(1 for a, b in zip(with_fb, without) if a < b)
     p_value = sign_test(better, worse)
@@ -124,8 +132,8 @@ def main(argv: list[str] | None = None) -> int:
     lines.append("| 用例 | 有兜底 | 无兜底 | 差 |")
     lines.append("|---|---|---|---|")
     for i, case in enumerate(cases):
-        a = arms["有兜底"][i]
-        b = arms["无兜底"][i]
+        a = arms[labels[0]][i]
+        b = arms[labels[1]][i]
         lines.append(
             f"| {case['id']} | {sum(a)}/{len(a)} | {sum(b)}/{len(b)} | "
             f"{sum(a)/len(a) - sum(b)/len(b):+.0%} |"
@@ -145,9 +153,9 @@ def main(argv: list[str] | None = None) -> int:
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     (RUNS / f"memory-ablation-{stamp}.json").write_text(json.dumps({
         "samples": args.samples,
-        "with": [sum(r) for r in arms["有兜底"]],
-        "without": [sum(r) for r in arms["无兜底"]],
-        "n_per_case": [len(r) for r in arms["有兜底"]],
+        "with": [sum(r) for r in arms[labels[0]]],
+        "without": [sum(r) for r in arms[labels[1]]],
+        "n_per_case": [len(r) for r in arms[labels[0]]],
         "better": better, "worse": worse, "p": p_value,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     write_result("memory_ablation", {
