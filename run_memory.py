@@ -34,6 +34,18 @@ FAKE_FABRICATE = ["记得啊，你家那只狗挺可爱的。"]
 FAKE_ABSTAIN = ["我这儿没存下那段，不记得了。"]
 
 
+def passed(verdict, *, expect_abstain: bool = False) -> bool:
+    """统一判定。**下游一律用这个，不要只看 verdict.hit。**
+
+    只看 hit 会把「周五和周三都记得」这种同时说出新旧值的回复算成命中。
+    """
+    if verdict.fabricated:
+        return False
+    if expect_abstain:
+        return verdict.abstained and not verdict.hit
+    return verdict.hit
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=("fake", "fabricate", "abstain", "real"), default="fake")
@@ -82,14 +94,16 @@ def main(argv: list[str] | None = None) -> int:
             expect=case["expect"],
             forbid=case["forbid"],
         ) if probe_reply.ok else None
-        # 没说过的事：正确行为是诚实弃答，而不是命中
-        if verdict and case.get("expect_abstain"):
-            verdict.hit = verdict.abstained
-            verdict.understood_by_reference = False
+        # 没说过的事：正确行为是诚实弃答，而不是命中。
+        # 判定统一走 passed()，不再改写 verdict.hit —— 改写会掩盖编造。
+        abstain_expected = bool(case.get("expect_abstain"))
         rows.append({"case": case, "replies": replies, "verdict": verdict})
 
     ok_rows = [r for r in rows if r["verdict"]]
-    hits = sum(1 for r in ok_rows if r["verdict"].hit)
+    hits = sum(
+        1 for r in ok_rows
+        if passed(r["verdict"], expect_abstain=bool(r["case"].get("expect_abstain")))
+    )
     fabrications = sum(1 for r in ok_rows if r["verdict"].fabricated)
     abstains = sum(1 for r in ok_rows if r["verdict"].abstained and not r["verdict"].hit)
     by_ref = sum(1 for r in ok_rows if r["verdict"].understood_by_reference)

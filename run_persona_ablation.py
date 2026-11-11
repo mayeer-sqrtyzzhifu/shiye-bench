@@ -80,9 +80,10 @@ def generate(users: list[str], text: str, *, samples: int, workers: int) -> list
     return [one(i) for i in range(len(users))]
 
 
-def rates(draws: list[list[str]], metric) -> list[float]:
+def rates(draws: list[list[str]], metric) -> list[float | None]:
+    """空采样返回 None，不能折成 0（越低越好的指标会把故障当成改善）。"""
     return [
-        (sum(1 for t in texts if metric(t)) / len(texts)) if texts else 0.0
+        (sum(1 for t in texts if metric(t)) / len(texts)) if texts else None
         for texts in draws
     ]
 
@@ -110,18 +111,27 @@ def main(argv: list[str] | None = None) -> int:
     for name, metric in METRICS.items():
         left = rates(arms["left"], metric)
         right = rates(arms["right"], metric)
-        lower = sum(1 for a, b in zip(right, left) if a < b)
-        higher = sum(1 for a, b in zip(right, left) if a > b)
+        pairs = [(a, b) for a, b in zip(right, left) if a is not None and b is not None]
+        lower = sum(1 for a, b in pairs if a < b)
+        higher = sum(1 for a, b in pairs if a > b)
+        if len(pairs) < 0.8 * len(right):
+            print(f"  {name}: 有效配对只有 {len(pairs)}/{len(right)}，实验作废")
         report[name] = {
-            "left": sum(left) / len(left),
-            "right": sum(right) / len(right),
+            "left": sum(a for a, _ in pairs) / max(1, len(pairs)),
+            "right": sum(b for _, b in pairs) / max(1, len(pairs)),
+            "dropped": len(right) - len(pairs),
             "lower": lower,
             "higher": higher,
             "p": sign_test(lower, higher),
         }
 
-    left_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else 0 for d in arms["left"]]
-    right_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else 0 for d in arms["right"]]
+    left_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else None for d in arms["left"]]
+    right_len = [sum(analyze_turn(t).length for t in d) / len(d) if d else None for d in arms["right"]]
+    len_pairs = [
+        (a, b) for a, b in zip(right_len, left_len) if a is not None and b is not None
+    ]
+    left_len = [b for _, b in len_pairs]
+    right_len = [a for a, _ in len_pairs]
     shorter = sum(1 for a, b in zip(right_len, left_len) if a < b)
     longer = sum(1 for a, b in zip(right_len, left_len) if a > b)
     report["平均长度"] = {

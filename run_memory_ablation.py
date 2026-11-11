@@ -39,6 +39,18 @@ REPORTS = ROOT / "reports"
 RUNS = ROOT / "data" / "runs"
 
 
+def passed(verdict, *, expect_abstain: bool = False) -> bool:
+    """统一判定。**下游一律用这个，不要只看 verdict.hit。**
+
+    只看 hit 会把「周五和周三都记得」这种同时说出新旧值的回复算成命中。
+    """
+    if verdict.fabricated:
+        return False
+    if expect_abstain:
+        return verdict.abstained and not verdict.hit
+    return verdict.hit
+
+
 def load_cases() -> list[dict]:
     return json.loads(CASES.read_text(encoding="utf-8"))["cases"]
 
@@ -61,9 +73,7 @@ def run_case(case: dict, index: int) -> tuple[bool | None, str]:
     if not reply.ok:
         return None, ""
     verdict = check_memory(reply.text, expect=case["expect"], forbid=case["forbid"])
-    if case.get("expect_abstain"):
-        verdict.hit = verdict.abstained
-    return bool(verdict.hit), reply.text
+    return passed(verdict, expect_abstain=bool(case.get("expect_abstain"))), reply.text
 
 
 def main(argv: list[str] | None = None) -> int:

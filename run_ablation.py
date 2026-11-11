@@ -67,11 +67,16 @@ def generate(users: list[str], *, samples: int, workers: int) -> list[list[str]]
     return [one(i) for i in range(len(users))]
 
 
-def per_case_rates(draws: list[list[str]], metric) -> list[float]:
-    rates = []
+def per_case_rates(draws: list[list[str]], metric) -> list[float | None]:
+    """空采样返回 None —— **不能折成 0**。
+
+    二段式、带问句、超长、长度都是"越低越好"，
+    把失败算成 0 等于让基础设施故障伪装成产品改善。
+    """
+    rates: list[float | None] = []
     for texts in draws:
         if not texts:
-            rates.append(0.0)
+            rates.append(None)
             continue
         hits = sum(1 for t in texts if metric(t))
         rates.append(hits / len(texts))
@@ -122,12 +127,20 @@ def main(argv: list[str] | None = None) -> int:
     for name, metric in METRICS.items():
         with_hint = per_case_rates(arms["有提示"], metric)
         without = per_case_rates(arms["无提示"], metric)
-        better = sum(1 for a, b in zip(with_hint, without) if a < b)   # 有提示更少 → 更好
-        worse = sum(1 for a, b in zip(with_hint, without) if a > b)
+        pairs = [
+            (a, b) for a, b in zip(with_hint, without)
+            if a is not None and b is not None
+        ]
+        dropped = len(with_hint) - len(pairs)
+        if len(pairs) < 0.8 * len(with_hint):
+            print(f"  {name}: 有效配对只有 {len(pairs)}/{len(with_hint)}，实验作废")
+        better = sum(1 for a, b in pairs if a < b)   # 有提示更少 → 更好
+        worse = sum(1 for a, b in pairs if a > b)
         p = sign_test(better, worse)
         report[name] = {
-            "with": sum(with_hint) / len(with_hint),
-            "without": sum(without) / len(without),
+            "with": sum(a for a, _ in pairs) / max(1, len(pairs)),
+            "without": sum(b for _, b in pairs) / max(1, len(pairs)),
+            "dropped": dropped,
             "better": better,
             "worse": worse,
             "p": p,

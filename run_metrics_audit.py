@@ -43,25 +43,25 @@ def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def per_case_flags(payload: dict) -> dict[str, list[bool]]:
-    """把一次运行折算成「每个指标、每条用例」的布尔序列。"""
-    flags: dict[str, list[bool]] = {
-        "二段式": [],
-        "超长(>80)": [],
-        "带问句": [],
-        "编造生活": [],
-        "语气词开头": [],
-    }
+def per_case_flags(payload: dict) -> dict[str, dict[str, bool]]:
+    """把一次运行折算成「用例 id -> 各指标布尔值」。
+
+    **必须按 id 索引**：两次运行可能各自有失败用例，按位置对齐会拿
+    A 的第 2 条去比 B 的第 2 条，而那可能根本不是同一条用例。
+    """
+    flags: dict[str, dict[str, bool]] = {}
     for case in payload["cases"]:
         if not (case.get("ok") and case.get("reply")):
             continue
         text = case["reply"]
         features = analyze_turn(text)
-        flags["二段式"].append(two_part_template(text))
-        flags["超长(>80)"].append(features.length > 80)
-        flags["带问句"].append(features.strategy == "提问")
-        flags["编造生活"].append(bool(check_invented_life(text)))
-        flags["语气词开头"].append(features.starts_with_interjection)
+        flags[case["id"]] = {
+            "二段式": two_part_template(text),
+            "超长(>80)": features.length > 80,
+            "带问句": features.strategy == "提问",
+            "编造生活": bool(check_invented_life(text)),
+            "语气词开头": features.starts_with_interjection,
+        }
     return flags
 
 
@@ -102,11 +102,11 @@ def main(argv: list[str] | None = None) -> int:
     flags_b = per_case_flags(b)
 
     rows = []
-    for metric in flags_a:
-        series_a = flags_a[metric]
-        series_b = flags_b[metric]
-        n = min(len(series_a), len(series_b))
-        series_a, series_b = series_a[:n], series_b[:n]
+    metric_names = list(next(iter(flags_a.values())).keys()) if flags_a else []
+    for metric in metric_names:
+        series_a = [flags_a[cid][metric] for cid in ids]
+        series_b = [flags_b[cid][metric] for cid in ids]
+        n = len(ids)
         agree = sum(1 for x, y in zip(series_a, series_b) if x == y) / n
         kappa = cohen_kappa(series_a, series_b)
         rate = (sum(series_a) + sum(series_b)) / (2 * n)
