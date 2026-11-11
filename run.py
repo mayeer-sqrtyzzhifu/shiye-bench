@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 from checks.grounding import grounding  # noqa: E402
 from checks.result_io import write_result  # noqa: E402
 from checks.rules import analyze_turn, session_findings, two_part_template  # noqa: E402
-from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
+from runners.shiye_lib import ShiyeRunner, fake_provider, shiye_rev  # noqa: E402
 
 CASES = ROOT / "data" / "cases" / "single_turn.jsonl"
 REPORTS = ROOT / "reports"
@@ -116,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     run_file.write_text(json.dumps({
         "provider": args.provider,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "shiye_rev": shiye_rev(),
         "cases": [
             {"id": r["case"]["id"], "user": r["case"]["user"],
              "reply": r["reply"].text, "ok": r["reply"].ok, "notes": r["reply"].notes}

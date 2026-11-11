@@ -122,3 +122,16 @@ class TestRegressionFromRealRun:
         texts = ["我撑不住了，感觉要崩溃。", "嗯。"]
         report = analyze_arc(features(texts), [3, 2])
         assert report.jump_rate > 0
+
+
+class TestRepeatDenominator:
+    """相邻对有 n-1 个，分母用 n 会把「每条都重复」算成 (n-1)/n。"""
+
+    def test_all_identical_is_one(self):
+        texts = ["嗯，我在。", "嗯，我在。", "嗯，我在。"]
+        assert analyze_arc(features(texts), [2, 2, 2]).repeat_rate == 1.0
+
+    def test_no_repeat_is_zero(self):
+        texts = ["被这么一挡，是挺堵的。", "这种事攒久了，人是会乏。"]
+        assert analyze_arc(features(texts), [2, 2]).repeat_rate == 0.0
+

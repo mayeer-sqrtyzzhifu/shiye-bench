@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from checks.arcs import aggregate, analyze_arc  # noqa: E402
 from checks.result_io import write_result  # noqa: E402
 from checks.rules import analyze_turn, tag_intensity  # noqa: E402
-from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
+from runners.shiye_lib import ShiyeRunner, fake_provider, shiye_rev  # noqa: E402
 
 ARCS = ROOT / "data" / "cases" / "arcs.jsonl"
 REPORTS = ROOT / "reports"
@@ -82,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     run_file.write_text(json.dumps({
         "provider": label,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "shiye_rev": shiye_rev(),
         "sessions": [
             {"id": r["arc"]["id"], "turns": r["arc"]["turns"],
              "replies": [x.text for x in r["replies"]]}

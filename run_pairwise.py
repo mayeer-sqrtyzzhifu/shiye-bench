@@ -160,13 +160,24 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     lines.append("\n## 对照过没过\n")
-    clear_ok = block_clear["left"] >= 0.7 * max(1, block_clear["left"] + block_clear["right"] + block_clear["tie"])
+    # 门必须同时看「比例」和「有效样本量」：
+    # 40 对里 39 对解析失败、1 对选中，比例仍是 100%，但什么也证明不了
+    min_valid = 20
+    clear_counted = block_clear["left"] + block_clear["right"] + block_clear["tie"]
+    same_counted = block_same["left"] + block_same["right"] + block_same["tie"]
+    enough = clear_counted >= min_valid and same_counted >= min_valid
+    lines.append(
+        f"- 有效样本：明确差异 {clear_counted}/{block_clear['total']}，"
+        f"完全相同 {same_counted}/{block_same['total']}（门槛 {min_valid}）"
+        f" → {'够' if enough else '**不够，对照无效**'}"
+    )
+    clear_ok = enough and block_clear["left"] >= 0.7 * max(1, clear_counted)
     lines.append(
         f"- **明确差异组**：选中真回复 {block_clear['left']}/"
         f"{block_clear['left'] + block_clear['right'] + block_clear['tie']}"
         f" → {'通过' if clear_ok else '**未通过**，判据分辨不了明显差异'}"
     )
-    same_tie = block_same["tie"] / max(1, block_same["left"] + block_same["right"] + block_same["tie"])
+    same_tie = block_same["tie"] / max(1, same_counted)
     lines.append(
         f"- **完全相同组**：判平局 {same_tie:.0%} → "
         f"{'通过' if same_tie >= 0.5 else '**未通过**，对相同的回复也硬选一边'}"

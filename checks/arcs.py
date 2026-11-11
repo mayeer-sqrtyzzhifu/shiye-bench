@@ -135,7 +135,8 @@ def analyze_arc(
         relief_eligible=peak >= 2,
         jump_rate=jumps / max(1, n - 1),
         stuck_rate=stuck / max(1, n - 2),
-        repeat_rate=repeats / n,
+        # 相邻对有 n-1 个：用 n 做分母会把「每条都重复」算成 (n-1)/n 而不是 1.0
+        repeat_rate=repeats / max(1, n - 1),
         lead_count=lead,
         diversity=diversity,
         question_rate=question_rate,
@@ -156,7 +157,11 @@ def aggregate(reports: list[ArcReport]) -> dict:
         "relief_eligible": len(eligible),
         "peak_relief": sum(1 for r in eligible if r.peak_relief),
         "stuck_rate": sum(r.stuck_rate * r.turns for r in reports) / total_turns,
-        "repeat_rate": sum(r.repeat_rate * r.turns for r in reports) / total_turns,
+        # repeat 的机会分母是相邻对数（turns-1），不能按 turns 加权
+        "repeat_rate": (
+            sum(r.repeat_rate * max(1, r.turns - 1) for r in reports)
+            / max(1, sum(max(1, r.turns - 1) for r in reports))
+        ),
         "jump_rate": sum(r.jump_rate * r.turns for r in reports) / total_turns,
         "lead_count": sum(r.lead_count for r in reports),
         "diversity": sum(r.diversity for r in reports) / len(reports),

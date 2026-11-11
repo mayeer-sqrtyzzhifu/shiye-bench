@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from checks.memory import check_memory  # noqa: E402
 from checks.result_io import write_result  # noqa: E402
-from runners.shiye_lib import ShiyeRunner, fake_provider  # noqa: E402
+from runners.shiye_lib import ShiyeRunner, fake_provider, shiye_rev  # noqa: E402
 
 CASES = ROOT / "cases" / "memory.json"
 REPORTS = ROOT / "reports"
@@ -114,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     run_file.write_text(json.dumps({
         "provider": args.provider,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "shiye_rev": shiye_rev(),
         "cases": [
             {"id": r["case"]["id"], "turns": [p["text"] for p in r["case"]["plant"]] + [r["case"]["probe"]["text"]],
              "replies": [x.text for x in r["replies"]]}
