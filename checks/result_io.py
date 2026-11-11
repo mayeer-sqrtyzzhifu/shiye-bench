@@ -57,3 +57,32 @@ def wilson(successes: int, total: int, z: float = 1.96) -> tuple[float, float]:
     centre = (p_hat + z * z / (2 * total)) / denom
     margin = z * ((p_hat * (1 - p_hat) / total + z * z / (4 * total * total)) ** 0.5) / denom
     return (max(0.0, centre - margin), min(1.0, centre + margin))
+
+def fingerprint(text: str) -> str:
+    """给一段配置（人格文本、提示、参数）算指纹。
+
+    不用它做安全用途，只是让「这次跑的是哪一版」可核对。
+    """
+    import hashlib
+
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:12]
+
+
+def run_meta(provider=None, **extra) -> dict:
+    """每次运行的元数据：时间、被测版本、模型、配置指纹。
+
+    外部评审指出消融「只存汇总，无法独立复核，也排不掉版本漂移」。
+    凡是要下结论的运行，都带上这个。
+    """
+    from runners.shiye_lib import shiye_rev
+
+    meta: dict = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "shiye_rev": shiye_rev(),
+    }
+    for key in ("model", "base_url"):
+        value = getattr(provider, key, None)
+        if value:
+            meta[key] = value
+    meta.update(extra)
+    return meta

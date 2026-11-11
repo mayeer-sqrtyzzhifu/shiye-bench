@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
 from checks.memory import check_memory  # noqa: E402
-from checks.result_io import write_result  # noqa: E402
+from checks.result_io import run_meta, write_result  # noqa: E402
 from checks.stats import sign_test  # noqa: E402
 from runners.shiye_lib import ShiyeRunner  # noqa: E402
 
@@ -162,11 +162,16 @@ def main(argv: list[str] | None = None) -> int:
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     (RUNS / f"memory-ablation-{stamp}.json").write_text(json.dumps({
-        "samples": args.samples,
-        "with": [sum(r) for r in arms[labels[0]]],
-        "without": [sum(r) for r in arms[labels[1]]],
-        "n_per_case": [len(r) for r in arms[labels[0]]],
-        "better": better, "worse": worse, "p": p_value,
+        "meta": run_meta(None, compare=args.compare, cases=len(cases),
+                         samples=args.samples, workers=args.workers),
+        "report": {"with": sum(with_fb) / len(with_fb),
+                   "without": sum(without) / len(without),
+                   "better": better, "worse": worse, "p": p_value},
+        "rows": [
+            {"id": case["id"], "probe": case["probe"]["text"],
+             labels[0]: arms[labels[0]][i], labels[1]: arms[labels[1]][i]}
+            for i, case in enumerate(cases)
+        ],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     write_result("memory_ablation", {
         "with": round(sum(with_fb) / len(with_fb), 3),

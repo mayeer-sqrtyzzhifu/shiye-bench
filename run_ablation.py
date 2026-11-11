@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-from checks.result_io import write_result  # noqa: E402
+from checks.result_io import fingerprint, run_meta, write_result  # noqa: E402
 from checks.rules import analyze_turn, two_part_template  # noqa: E402
 from checks.stats import sign_test, wilson  # noqa: E402
 from runners.shiye_lib import ShiyeRunner  # noqa: E402
@@ -188,9 +188,20 @@ def main(argv: list[str] | None = None) -> int:
             lines.append(f"- {name}：分不出（p={row['p']:.3f}，{row['better']} 好 / {row['worse']} 坏）")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows = [
+        {"id": f"case-{i}", "user": user,
+         "with_hint": arms["有提示"][i], "without_hint": arms["无提示"][i]}
+        for i, user in enumerate(users)
+    ]
     (RUNS / f"ablation-{args.hint}-{stamp}.json").write_text(
-        json.dumps({"hint": args.hint, "cases": len(users), "samples": args.samples,
-                    "report": report}, ensure_ascii=False, indent=1),
+        json.dumps({
+            # 这个脚本不直接用 provider 对象，模型信息从环境无法得知，
+            # 只记版本与配置指纹
+            "meta": run_meta(None, hint=args.hint, cases=len(users),
+                             samples=args.samples, workers=args.workers),
+            "report": report,
+            "rows": rows,
+        }, ensure_ascii=False, indent=1),
         encoding="utf-8",
     )
     lines.append(

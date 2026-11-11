@@ -88,3 +88,36 @@ class TestLabelOrder:
         assert 'pairs = [(r, l) for r, l in zip(right, left)' in src
         assert '"left": sum(l for _, l in pairs)' in src
         assert '"right": sum(r for r, _ in pairs)' in src
+
+
+class TestRunRecords:
+    """每次下结论的运行都要能独立复核：逐条回复 + 版本/配置指纹。"""
+
+    def test_fingerprint_is_stable_and_short(self):
+        from checks.result_io import fingerprint
+
+        assert fingerprint("abc") == fingerprint("abc")
+        assert fingerprint("abc") != fingerprint("abd")
+        assert len(fingerprint("abc")) == 12
+
+    def test_run_meta_has_version_and_time(self):
+        from checks.result_io import run_meta
+
+        meta = run_meta(None, cases=8, samples=1)
+        assert meta["generated_at"]
+        assert meta["shiye_rev"]
+        assert meta["cases"] == 8
+
+    def test_ablation_json_has_rows_and_meta(self, tmp_path):
+        """消融产物必须带 rows（逐条回复）与 meta（版本指纹）。"""
+        import json
+        from pathlib import Path
+
+        runs = sorted(Path("data/runs").glob("ablation-*.json"))
+        if not runs:
+            return  # 还没跑过就跳过
+        payload = json.loads(runs[-1].read_text(encoding="utf-8"))
+        assert "rows" in payload and payload["rows"]
+        assert "meta" in payload and payload["meta"]["generated_at"]
+        row = payload["rows"][0]
+        assert "with_hint" in row and "without_hint" in row

@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[0]
 sys.path.insert(0, str(ROOT))
 
-from checks.result_io import write_result  # noqa: E402
+from checks.result_io import fingerprint, run_meta, write_result  # noqa: E402
 from checks.rules import analyze_turn, two_part_template  # noqa: E402
 from checks.stats import sign_test  # noqa: E402
 from runners.shiye_lib import ShiyeRunner, _ensure_shiye_on_path  # noqa: E402
@@ -180,9 +180,26 @@ def main(argv: list[str] | None = None) -> int:
         lines.append(f"- {name}：{fmt(row['left'])} → {fmt(row['right'])}，{verdict}")
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows = []
+    for i, user in enumerate(users):
+        rows.append({
+            "id": f"case-{i}",
+            "user": user,
+            "left": arms["left"][i],
+            "right": arms["right"][i],
+        })
     (RUNS / f"persona-ablation-{stamp}.json").write_text(
-        json.dumps({"left": args.left, "right": args.right, "cases": len(users),
-                    "samples": args.samples, "report": report}, ensure_ascii=False, indent=1),
+        json.dumps({
+            "meta": run_meta(
+                provider,
+                left=args.left, right=args.right,
+                left_sha=fingerprint(texts[args.left]),
+                right_sha=fingerprint(texts[args.right]),
+                cases=len(users), samples=args.samples, workers=args.workers,
+            ),
+            "report": report,
+            "rows": rows,
+        }, ensure_ascii=False, indent=1),
         encoding="utf-8",
     )
     write_result("persona_ablation", {
