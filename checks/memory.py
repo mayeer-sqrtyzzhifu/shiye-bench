@@ -59,48 +59,44 @@ class MemoryVerdict:
 
 
 _DIGITS = "零一二三四五六七八九"
+_UNITS = ("", "十", "百", "千")
 
 
 def _to_chinese(n: int) -> str:
-    """0–99999 的中文写法（口语式：4500 可写"四千五"）。"""
+    """0–99999999 的标准中文写法（含零位规则）。"""
     if n == 0:
         return "零"
     if n >= 10000:
         high, low = divmod(n, 10000)
-        return _to_chinese(high) + "万" + ("" if low == 0 else _to_chinese(low))
-    units = ("", "十", "百", "千")
-    parts: list[str] = []
+        text = _to_chinese(high) + "万"
+        if low == 0:
+            return text
+        if low < 1000:  # 二万零五 而不是 二万五
+            text += "零"
+        return text + _to_chinese(low)
+
     text = str(n)
     length = len(text)
+    parts: list[str] = []
     for i, ch in enumerate(text):
         digit = int(ch)
         if digit == 0:
             if parts and not parts[-1].endswith("零"):
                 parts.append("零")
             continue
-        parts.append(_DIGITS[digit] + units[length - i - 1])
+        parts.append(_DIGITS[digit] + _UNITS[length - i - 1])
     out = "".join(parts).rstrip("零")
-    # 十几：十 而不是 一十
-    if out.startswith("一十"):
-        out = out[1:]
-    # 口语式：四千五百 -> 四千五
-    if len(out) >= 2 and out.endswith("百") is False and out[-1] == "百":
-        pass
-    for unit in ("百", "千"):
-        tail = out
-        if tail.endswith("零"):
-            tail = tail[:-1]
-        break
-    if out.endswith("百零"):
-        out = out[:-2] + "百"
-    if out.endswith("百"):
-        pass
-    # 末位是整百/整千时，口语常省略最后一个单位
-    if out.endswith("千") and len(out) > 2:
-        out = out[:-1]
-    elif out.endswith("百") and len(out) > 2:
-        out = out[:-1]
-    return out
+    return out[1:] if out.startswith("一十") else out
+
+
+def _colloquial(n: int) -> str | None:
+    """口语省略式：340 说「三百四」，1200 说「一千二」。"""
+    if n < 110 or n % 10 != 0:
+        return None
+    standard = _to_chinese(n)
+    if len(standard) >= 2 and standard[-1] in "十百千":
+        return standard[:-1]
+    return None
 
 
 def _variants(token: str) -> set[str]:
@@ -110,8 +106,10 @@ def _variants(token: str) -> set[str]:
         return {token}
     value = int(token)
     forms = {token, str(value)}
-    full = _to_chinese(value)
-    forms.add(full)
+    forms.add(_to_chinese(value))
+    spoken = _colloquial(value)
+    if spoken:
+        forms.add(spoken)
     # 补一个"带完整单位"的写法（四千五 vs 四千五百）
     if value >= 100 and value % 100 == 0:
         forms.add(_to_chinese(value // 100) + "百")

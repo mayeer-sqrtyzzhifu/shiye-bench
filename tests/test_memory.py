@@ -88,3 +88,29 @@ class TestCheckerAgainstRealReplies:
 
     def test_normal_recall_still_hits(self):
         assert check_memory("姓陈。上周你还说他挺好的呢。", expect=["陈"], forbid=["王"]).hit
+
+
+class TestChineseNumerals:
+    """中文数字的零位与口语句式 —— 曾经把「二万零五」写成「二万五」。"""
+
+    def test_standard_forms(self):
+        from checks.memory import _to_chinese
+
+        cases = {5: "五", 15: "十五", 34: "三十四", 105: "一百零五",
+                 340: "三百四十", 1200: "一千二百", 20005: "二万零五"}
+        for value, expected in cases.items():
+            assert _to_chinese(value) == expected, value
+
+    def test_colloquial_forms(self):
+        from checks.memory import _colloquial
+
+        assert _colloquial(340) == "三百四"
+        assert _colloquial(1200) == "一千二"
+        assert _colloquial(15) is None
+
+    def test_matching_accepts_both(self):
+        from checks.memory import check_memory
+
+        assert check_memory("三百四", expect=["340"], forbid=[]).hit
+        assert check_memory("三百四十", expect=["340"], forbid=[]).hit
+        assert check_memory("二万零五", expect=["20005"], forbid=[]).hit

@@ -380,7 +380,7 @@ L1 规则分不开、比例对比测不出、成对判据也不稳定。
 - 成对判官的门可以 1/40 有效样本就通过
 - `arcs` 的 `repeat_rate` 分母用 `n` 而不是 `n-1`
 - 文档里多处过期数字（README 的 267 项、96 passed 等）
-- SQLCipher 缺 Windows wheel，干净环境跑不了 284 项
+- ~~SQLCipher 缺 Windows wheel~~ 已改为 skip + README 写明安装前提
 
 ### F4 复核：判据改了之后，结论没倒，数字变了
 
