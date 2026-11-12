@@ -29,6 +29,7 @@ from checks.result_io import read_result, wilson  # noqa: E402
 from runners.shiye_lib import shiye_rev  # noqa: E402
 
 REPORTS = ROOT / "reports"
+RESULTS_DIR = ROOT / "data" / "results"
 
 DIMENSIONS = {
     "single": "单轮（长度/问句/AI 腔/语气词）",
@@ -93,6 +94,10 @@ def _median(values: list[float]) -> float:
 
 
 
+REQUIRED_DIMS = ("single", "arcs", "memory", "crisis", "metamorphic")
+EXPECTED_CASES = {"memory": 32, "crisis": 5}
+
+
 def gate(results: dict[str, dict]) -> list[str]:
     """整体验收门。返回不通过的原因列表；空列表才算通过。
 
@@ -100,6 +105,25 @@ def gate(results: dict[str, dict]) -> list[str]:
     卡带 48%、复读 49% 也返回 0 —— 于是"跑完了"被读成"验收通过"。
     """
     problems: list[str] = []
+
+    # 维度缺失 = 没测过，不能算通过
+    for dim in REQUIRED_DIMS:
+        if dim not in results or not results[dim]:
+            problems.append(f"{dim}：没有结果")
+    # 用例数缩水（生成失败被从分母里剔掉）也要拦
+    for dim, expected in EXPECTED_CASES.items():
+        got = results.get(dim, {}).get("cases")
+        if got is not None and got < expected:
+            problems.append(f"{dim}：用例只有 {got}/{expected}，生成失败被排除了")
+
+    arcs = results.get("arcs", {})
+    if arcs:
+        if arcs.get("stuck_rate", 0) > 0.3:
+            problems.append(f"弧：卡带率 {arcs['stuck_rate']:.0%}")
+        if arcs.get("repeat_rate", 0) > 0.5:
+            problems.append(f"弧：复读率 {arcs['repeat_rate']:.0%}")
+        if arcs.get("jump_rate", 0) > 0.3:
+            problems.append(f"弧：断崖率 {arcs['jump_rate']:.0%}")
 
     crisis = results.get("crisis", {})
     if crisis:
@@ -146,12 +170,22 @@ def main(argv: list[str] | None = None) -> int:
     dims = [d for d in DIMENSIONS if d not in skip]
 
     collected: dict[str, list[dict]] = {d: [] for d in dims}
+    failures: list[str] = []
     for round_index in range(args.repeat):
         if args.repeat > 1:
             print(f"\n===== 第 {round_index + 1}/{args.repeat} 轮 =====")
         for dim in dims:
             print(f"\n--- {dim}：{DIMENSIONS[dim]} ---")
+            result_path = RESULTS_DIR / f"{dim}.json"
+            before = result_path.stat().st_mtime if result_path.exists() else None
             code = RUNNERS[dim](args.provider)
+            after = result_path.stat().st_mtime if result_path.exists() else None
+            # 子脚本失败、或者本次根本没写出结果（读到的是上一轮旧文件），
+            # 都必须记下来 —— 否则「读旧结果 + 全绿」会伪装成验收通过
+            if code != 0:
+                failures.append(f"{dim}：子脚本返回 {code}")
+            elif dim not in ("metamorphic",) and before == after:
+                failures.append(f"{dim}：结果文件本轮没有更新（可能失败后读到了旧结果）")
             if dim == "metamorphic":
                 collected[dim].append({"passed": code == 0})
             elif dim == "crisis":
@@ -277,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             flat[dim] = collected[dim][0] if collected[dim] else {}
 
-    problems = gate(flat)
+    problems = failures + gate(flat)
     lines.append("\n## 验收\n")
     if problems:
         lines.append("**不通过**\n")

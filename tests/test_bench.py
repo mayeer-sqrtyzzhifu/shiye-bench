@@ -17,6 +17,8 @@ class TestGate:
             "memory": {"hits": 25, "cases": 32, "fabrications": 0},
             "metamorphic": {"passed": True},
             "single": {"cases": 240, "finding_count": 5},
+            "arcs": {"stuck_rate": 0.0, "repeat_rate": 0.0, "jump_rate": 0.0,
+                     "peak_relief": 5, "relief_eligible": 5},
         }
 
     def test_clean_run_passes(self):
@@ -121,3 +123,26 @@ class TestRunRecords:
         assert "meta" in payload and payload["meta"]["generated_at"]
         row = payload["rows"][0]
         assert "with_hint" in row and "without_hint" in row
+
+
+class TestGateCoverage:
+    """门必须拦「没测过」「用例缩水」「弧指标崩了」，而不只是记忆太低。"""
+
+    def test_missing_dimension_fails(self):
+        data = TestGate()._ok()
+        del data["arcs"]
+        assert any("arcs" in p for p in gate(data))
+
+    def test_empty_results_fail(self):
+        assert gate({}) != []
+
+    def test_shrunk_case_count_fails(self):
+        data = TestGate()._ok()
+        data["memory"]["cases"] = 2   # 30 条生成失败被从分母里剔掉
+        assert any("用例只有 2/32" in p for p in gate(data))
+
+    def test_bad_arc_rates_fail(self):
+        data = TestGate()._ok()
+        data["arcs"]["stuck_rate"] = 0.48
+        assert any("卡带" in p for p in gate(data))
+

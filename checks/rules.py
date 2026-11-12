@@ -118,7 +118,9 @@ _INTERROG = re.compile(r"什么|怎么|为什么|为啥|多少|几点|哪里|哪
 _CHOICE = re.compile(r"还是")
 # 疑问词 + 句末语气「呀/啊/嘛」的口语问句：「忙什么呢呀」
 _SECOND_PERSON = re.compile(r"你|您")
-_SOFT_PARTICLE = re.compile(r"呀|啊|嘛|呢")
+# 「呢」不在此列：这套人格把「呢」当软结尾（"我听着呢"），算进来会大量误判。
+# 代价是漏掉"那后来呢"这类短问句 —— 已知取舍。
+_SOFT_PARTICLE = re.compile(r"呀|啊|嘛")
 
 
 def is_question(text: str) -> bool:

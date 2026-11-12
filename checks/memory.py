@@ -40,9 +40,20 @@ class MemoryVerdict:
     understood_by_reference: bool = False
     reply: str = ""
 
+    def passed(self, *, expect_abstain: bool = False) -> bool:
+        """统一判定。**下游一律用这个，不要只看 self.hit。**
+
+        只看 hit 会把「周五和周三都记得」这种同时说出新旧值的回复算成命中。
+        """
+        if self.fabricated:
+            return False
+        if expect_abstain:
+            return self.abstained and not self.hit
+        return self.hit
+
     @property
     def ok(self) -> bool:
-        return self.hit and not self.fabricated
+        return self.passed()
 
     def summary(self) -> str:
         if self.hit:

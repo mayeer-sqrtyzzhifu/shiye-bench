@@ -34,18 +34,6 @@ FAKE_FABRICATE = ["记得啊，你家那只狗挺可爱的。"]
 FAKE_ABSTAIN = ["我这儿没存下那段，不记得了。"]
 
 
-def passed(verdict, *, expect_abstain: bool = False) -> bool:
-    """统一判定。**下游一律用这个，不要只看 verdict.hit。**
-
-    只看 hit 会把「周五和周三都记得」这种同时说出新旧值的回复算成命中。
-    """
-    if verdict.fabricated:
-        return False
-    if expect_abstain:
-        return verdict.abstained and not verdict.hit
-    return verdict.hit
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", choices=("fake", "fabricate", "abstain", "real"), default="fake")
@@ -102,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     ok_rows = [r for r in rows if r["verdict"]]
     hits = sum(
         1 for r in ok_rows
-        if passed(r["verdict"], expect_abstain=bool(r["case"].get("expect_abstain")))
+        if r["verdict"].passed(expect_abstain=bool(r["case"].get("expect_abstain")))
     )
     fabrications = sum(1 for r in ok_rows if r["verdict"].fabricated)
     abstains = sum(1 for r in ok_rows if r["verdict"].abstained and not r["verdict"].hit)

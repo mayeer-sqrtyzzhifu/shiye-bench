@@ -106,18 +106,22 @@ def main(argv: list[str] | None = None) -> int:
 
     # 长度是连续量，单独做配对比较
     length_with = [
-        sum(analyze_turn(t).length for t in texts) / len(texts) if texts else 0.0
+        sum(analyze_turn(t).length for t in texts) / len(texts) if texts else None
         for texts in arms["有提示"]
     ]
     length_without = [
-        sum(analyze_turn(t).length for t in texts) / len(texts) if texts else 0.0
+        sum(analyze_turn(t).length for t in texts) / len(texts) if texts else None
         for texts in arms["无提示"]
     ]
-    shorter = sum(1 for a, b in zip(length_with, length_without) if a < b)
-    longer = sum(1 for a, b in zip(length_with, length_without) if a > b)
+    len_pairs = [
+        (a, b) for a, b in zip(length_with, length_without)
+        if a is not None and b is not None
+    ]
+    shorter = sum(1 for a, b in len_pairs if a < b)
+    longer = sum(1 for a, b in len_pairs if a > b)
     length_report = {
-        "with": sum(length_with) / max(1, len(length_with)),
-        "without": sum(length_without) / max(1, len(length_without)),
+        "with": sum(b for _, b in len_pairs) / max(1, len(len_pairs)),
+        "without": sum(a for a, _ in len_pairs) / max(1, len(len_pairs)),
         "shorter": shorter,
         "longer": longer,
         "p": sign_test(shorter, longer),

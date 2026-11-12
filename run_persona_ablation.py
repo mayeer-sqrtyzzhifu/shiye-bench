@@ -190,8 +190,9 @@ def main(argv: list[str] | None = None) -> int:
         })
     (RUNS / f"persona-ablation-{stamp}.json").write_text(
         json.dumps({
+            # 这个脚本内部自建 runner，没有 provider 对象；只记版本与配置指纹
             "meta": run_meta(
-                provider,
+                None,
                 left=args.left, right=args.right,
                 left_sha=fingerprint(texts[args.left]),
                 right_sha=fingerprint(texts[args.right]),
