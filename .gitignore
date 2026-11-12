@@ -15,3 +15,6 @@ __pycache__/
 
 # 评测产物（报告、原始结果）不进版本库；关键数字记在 worklog 里
 reports/
+
+# 外部 review 的临时目录
+.pytest-review*/
