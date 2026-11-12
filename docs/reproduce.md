@@ -24,7 +24,7 @@ benchmark 通过 `runners/shiye_lib.py` 把 `../shiye/src` 加进 `sys.path`，
 ## 1. 三十秒自检（零成本）
 
 ```powershell
-python -m pytest tests -q      # 应看到 176 passed
+python -m pytest tests -q      # 应看到 183 passed
 python run_metamorphic.py      # 应看到 8 个变形全部 PASS
 ```
 

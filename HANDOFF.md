@@ -1,8 +1,8 @@
 # 拾夜（shiye）与它的评测 —— 交接文档
 
 > 最后更新：2026-11-13
-> 覆盖：`shiye`（产品）@ `3dec277`（322 项测试，领先 origin 27 个提交，**未推送**）
-> 　　　`shiye-bench`（评测）@ `9d495e6`（180 项测试）
+> 覆盖：`shiye`（产品）@ `31438df`（测试数见 `shiye/HANDOFF.md`，两边不互相引用数字）
+> 　　　`shiye-bench`（评测）@ `56c5f45`（183 项测试，已推送）
 > 读法：想接手就先读 §0、§7、§10；想改代码直接看 §4；想加评测看 §5、§6。
 
 ---
@@ -12,9 +12,9 @@
 | | `shiye` | `shiye-bench` |
 |---|---|---|
 | 是什么 | 单机自用的中文情感陪伴 agent | 独立评测，度量"陪伴质量" |
-| 形态 | Python 标准库为主，SQLite + FTS5，自带 Web UI | 纯分析代码，不联网也能跑 180 项测试 |
+| 形态 | Python 标准库为主，SQLite + FTS5，自带 Web UI | 纯分析代码，不联网也能跑 183 项测试 |
 | 规模 | 20 个模块约 3.4k 行；17 个测试文件 | 63 个文件；5 个维度、300+ 用例 |
-| 一条命令 | `python -m pytest`（322 项） | `python bench.py --provider real` |
+| 一条命令 | `python -m pytest`（计数见 `shiye/HANDOFF.md`） | `python bench.py --provider real` |
 | 现状 | 能用，记忆层刚重建（A-MEM 式） | 门能拦；记忆/危机结论有 CI |
 
 **核心设计取舍**：不接向量库、不接框架、不做多用户。所有依赖都能用一条 `pip install` 收回，
@@ -275,7 +275,7 @@ memory_terms:  关键词/标签倒排        memory_links:  记忆间链接
 ```powershell
 cd shiye
 pip install httpx                      # 生成用；其余是标准库
-python -m pytest                       # 322 项（缺 SQLCipher 时 Web/加密部分 skip）
+python -m pytest                       # 计数见 shiye/HANDOFF.md（缺 SQLCipher 时 Web/加密部分 skip）
 
 # 向量（可选）
 pip install onnxruntime tokenizers
@@ -295,7 +295,7 @@ python tools/embed_backfill.py
 
 ```powershell
 cd shiye-bench
-python -m pytest tests                 # 180 项，不联网
+python -m pytest tests                 # 183 项，不联网
 python run_metamorphic.py              # 判据自检
 python run_memory.py --provider real   # 32 条，约 3 分钟
 python bench.py --provider real --skip voice   # 五个维度，约 12 分钟
@@ -344,7 +344,7 @@ python run_personas.py && python run_voice.py   # 语气维度（要单独先跑
 
 ## 11. 接手第一小时
 
-1. `cd shiye && python -m pytest`（322 项）→ 确认环境。
+1. `cd shiye && python -m pytest` → 确认环境（计数见 shiye/HANDOFF.md）。
 2. 读 `src/companion/turn.py` 的 `run_turn`（唯一主流程）。
 3. 读 `src/companion/signals.py` 的 `scan`（安全链路入口）。
 4. `cd ../shiye-bench && python run_metamorphic.py` → 看判据自检。
@@ -366,7 +366,7 @@ shiye/
   personas/          人格快照
   cases/crisis_corpus.json   危机回归语料（21/3/12）
   tools/             encrypt_db / embed_backfill / 其他
-  tests/             17 个文件、322 项
+  tests/             17 个文件
 
 shiye-bench/
   run_*.py           各维度入口
