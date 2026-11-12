@@ -156,13 +156,20 @@ def aggregate(reports: list[ArcReport]) -> dict:
         "turns": total_turns,
         "relief_eligible": len(eligible),
         "peak_relief": sum(1 for r in eligible if r.peak_relief),
-        "stuck_rate": sum(r.stuck_rate * r.turns for r in reports) / total_turns,
+        # 卡带的机会分母是 n-2、断崖是 n-1，不能都用 turns
+        "stuck_rate": (
+            sum(r.stuck_rate * max(1, r.turns - 2) for r in reports)
+            / max(1, sum(max(1, r.turns - 2) for r in reports))
+        ),
         # repeat 的机会分母是相邻对数（turns-1），不能按 turns 加权
         "repeat_rate": (
             sum(r.repeat_rate * max(1, r.turns - 1) for r in reports)
             / max(1, sum(max(1, r.turns - 1) for r in reports))
         ),
-        "jump_rate": sum(r.jump_rate * r.turns for r in reports) / total_turns,
+        "jump_rate": (
+            sum(r.jump_rate * max(1, r.turns - 1) for r in reports)
+            / max(1, sum(max(1, r.turns - 1) for r in reports))
+        ),
         "lead_count": sum(r.lead_count for r in reports),
         "diversity": sum(r.diversity for r in reports) / len(reports),
         "question_rate": sum(r.question_rate * r.turns for r in reports) / total_turns,

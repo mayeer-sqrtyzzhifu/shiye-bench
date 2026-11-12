@@ -16,7 +16,7 @@
 
 用法::
 
-    python run_pairwise.py --pairs 12
+    python run_pairwise.py               # 默认 40 对；低于 20 对会被判「对照无效」
 """
 
 from __future__ import annotations
@@ -99,7 +99,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--left", default="p4-openings")
     parser.add_argument("--right", default="p5-nolife")
-    parser.add_argument("--pairs", type=int, default=12)
+    # 门要求两个对照组各 ≥20 对有效；默认值必须 ≥ 门槛，否则默认命令永远"对照无效"
+    parser.add_argument("--pairs", type=int, default=40)
     args = parser.parse_args(argv)
 
     cases, by_name = personas(args.left, args.right)
