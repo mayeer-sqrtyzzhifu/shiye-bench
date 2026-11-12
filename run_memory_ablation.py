@@ -84,6 +84,12 @@ def main(argv: list[str] | None = None) -> int:
         labels = ("有兜底", "无兜底")
     for label, ablate in zip(labels, ("", args.compare)):
         os.environ["SHIYE_ABLATE"] = ablate
+        # 有些机制默认关闭（evolution），做对照时要显式打开"有"那一臂
+        if args.compare == "evolve":
+            if ablate:
+                os.environ.pop("SHIYE_EVOLVE", None)
+            else:
+                os.environ["SHIYE_EVOLVE"] = "1"
         started = time.time()
         rows: list[list[bool]] = [[] for _ in cases]
         reply_texts: list[list[str]] = [[] for _ in cases]
@@ -104,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         samples_text[label] = reply_texts
         print(f"{label}：{len(cases)} 条 × {args.samples} 次，用时 {time.time() - started:.0f} 秒")
     os.environ.pop("SHIYE_ABLATE", None)
+    os.environ.pop("SHIYE_EVOLVE", None)
 
     with_fb = [sum(r) / len(r) if r else None for r in arms[labels[0]]]
     without = [sum(r) / len(r) if r else None for r in arms[labels[1]]]
