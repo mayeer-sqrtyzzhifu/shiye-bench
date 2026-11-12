@@ -39,6 +39,14 @@ REPORTS = ROOT / "reports"
 RUNS = ROOT / "data" / "runs"
 
 
+LABELS = {
+    "anaphoric": ("有兜底", "无兜底"),
+    "slot_key": ("有槽位", "无槽位"),
+    "evolve": ("有演化", "无演化"),
+    "hedge": ("有不确定标注", "无不确定标注"),
+}
+
+
 def load_cases() -> list[dict]:
     return json.loads(CASES.read_text(encoding="utf-8"))["cases"]
 
@@ -81,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.compare == "hedge":
         labels = ("有标注", "无标注")
     else:
-        labels = ("有兜底", "无兜底")
+        labels = LABELS.get(args.compare, ("有", "无"))
     for label, ablate in zip(labels, ("", args.compare)):
         os.environ["SHIYE_ABLATE"] = ablate
         # 有些机制默认关闭（evolution），做对照时要显式打开"有"那一臂
@@ -130,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     lines = ["# 记忆消融\n"]
     lines.append(f"- 生成时间：{datetime.now():%Y-%m-%d %H:%M}")
     lines.append(f"- 用例 {len(cases)} 条，每条 {args.samples} 次，并发 {args.workers}")
-    lines.append(f"- 两臂只差 `SHIYE_ABLATE={args.compare}`\n")
+    switch = "SHIYE_EVOLVE=1 / 不设" if args.compare == "evolve" else f"SHIYE_ABLATE={args.compare}"
+    lines.append(f"- 两臂只差 `{switch}`\n")
     lines.append("| 指标 | 有兜底 | 无兜底 | 差 |")
     lines.append("|---|---|---|---|")
     lines.append(
